@@ -4,11 +4,15 @@
 > **Syllabus Coverage:** Module 4 (Vector Spaces and Linear Transformations) & Module 5 (Inner Product Spaces)  
 > **Application Type:** Interactive Single-Page Web Application  
 
+[![Live Demo](https://img.shields.io/badge/demo-live%20on%20GitHub%20Pages-success.svg)](https://shnkars.github.io/linear-algebra-playground/)
 [![Tests](https://img.shields.io/badge/tests-16%20passed%2C%200%20failed-brightgreen.svg)](#built-in-test-suite)
 [![Architecture](https://img.shields.io/badge/architecture-zero%20build%20step-blue.svg)](#architecture)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 An interactive, browser-based tool for students and educators to explore linear algebra geometrically and intuitively in real time. Every algorithm features live, step-by-step worked explanations generated directly by the underlying mathematical core.
+
+👉 **[Launch Live Playground](https://shnkars.github.io/linear-algebra-playground/)** | **[Run In-Browser Tests](https://shnkars.github.io/linear-algebra-playground/?test=1)**
+
 
 ---
 
