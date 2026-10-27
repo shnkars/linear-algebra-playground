@@ -1,0 +1,4253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Linear Algebra Playground | BAMAT205 Interactive Modules 4 &amp; 5</title>
+  <meta name="description" content="Interactive single-page web application for BAMAT205 Discrete Mathematics and Linear Algebra covering Module 4 (Vector Spaces & Linear Transformations) and Module 5 (Inner Product Spaces).">
+
+  <!-- Typography: Inter for UI, JetBrains Mono for matrices & numbers -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Pinned Three.js r128 UMD build from cdnjs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+  <style>
+    /* =========================================================
+       8. DESIGN SYSTEM & CSS TOKENS (Section 8.2)
+       ========================================================= */
+    :root {
+      --bg: #F7F8FA;
+      --surface: #FFFFFF;
+      --surface-2: #EEF1F5;
+      --text: #1B2230;
+      --text-muted: #5B6578;
+      --border: #D8DEE8;
+      --accent: #3B5BDB;
+      --accent-hover: #364FC7;
+      --accent-light: rgba(59, 91, 219, 0.1);
+
+      /* Semantic Math Colors */
+      --i-hat: #E03131;
+      --j-hat: #2F9E44;
+      --k-hat: #1C7ED6;
+      --colspace: #0CA678;
+      --rowspace: #7048E8;
+      --nullspace: #F76707;
+      --eigen: #F59F00;
+      --result: #1B2230;
+
+      /* Status Messages */
+      --ok: #2B8A3E;
+      --warn: #E67700;
+      --err: #C92A2A;
+
+      /* UI Metrics */
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-pill: 999px;
+      --shadow-popover: 0 4px 16px rgba(0, 0, 0, 0.08);
+      --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    [data-theme="dark"],
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #0F1217;
+        --surface: #171B22;
+        --surface-2: #1F2530;
+        --text: #E6EAF2;
+        --text-muted: #9AA4B8;
+        --border: #2B3342;
+        --accent: #7C93FF;
+        --accent-hover: #91A7FF;
+        --accent-light: rgba(124, 147, 255, 0.15);
+
+        --i-hat: #FF6B6B;
+        --j-hat: #51CF66;
+        --k-hat: #4DABF7;
+        --colspace: #38D9A9;
+        --rowspace: #9775FA;
+        --nullspace: #FF922B;
+        --eigen: #FFD43B;
+        --result: #FFFFFF;
+
+        --ok: #40C057;
+        --warn: #FAB005;
+        --err: #FF8787;
+        --shadow-popover: 0 4px 20px rgba(0, 0, 0, 0.4);
+      }
+    }
+
+    [data-theme="light"] {
+      --bg: #F7F8FA;
+      --surface: #FFFFFF;
+      --surface-2: #EEF1F5;
+      --text: #1B2230;
+      --text-muted: #5B6578;
+      --border: #D8DEE8;
+      --accent: #3B5BDB;
+      --accent-hover: #364FC7;
+      --accent-light: rgba(59, 91, 219, 0.1);
+      --i-hat: #E03131;
+      --j-hat: #2F9E44;
+      --k-hat: #1C7ED6;
+      --colspace: #0CA678;
+      --rowspace: #7048E8;
+      --nullspace: #F76707;
+      --eigen: #F59F00;
+      --result: #1B2230;
+      --ok: #2B8A3E;
+      --warn: #E67700;
+      --err: #C92A2A;
+    }
+
+    /* CSS Reset */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Focus styling */
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* =========================================================
+       HEADER & NAVIGATION
+       ========================================================= */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: var(--text);
+      text-decoration: none;
+      white-space: nowrap;
+    }
+
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--accent), var(--i-hat));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 800;
+      font-size: 0.85rem;
+    }
+
+    .badge-course {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 2px 6px;
+      background: var(--surface-2);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+    }
+
+    .tab-bar {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding: 4px 0;
+    }
+    .tab-bar::-webkit-scrollbar { display: none; }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 8px 14px;
+      font-family: var(--font-sans);
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      position: relative;
+      white-space: nowrap;
+      transition: all 0.15s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+      background: var(--surface-2);
+    }
+
+    .tab-btn.active {
+      color: var(--accent);
+      font-weight: 600;
+      background: var(--accent-light);
+    }
+
+    .tab-btn.active::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 12px;
+      right: 12px;
+      height: 2px;
+      background: var(--accent);
+      border-radius: 2px;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-btn, .action-btn {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.825rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+
+    .icon-btn:hover, .action-btn:hover {
+      background: var(--border);
+    }
+
+    .icon-btn {
+      padding: 6px 10px;
+      font-size: 0.95rem;
+    }
+
+    .mode-badge {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: var(--radius-pill);
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .mode-exact {
+      background: rgba(43, 138, 62, 0.15);
+      color: var(--ok);
+      border: 1px solid rgba(43, 138, 62, 0.3);
+    }
+    .mode-float {
+      background: rgba(230, 119, 0, 0.15);
+      color: var(--warn);
+      border: 1px solid rgba(230, 119, 0, 0.3);
+    }
+
+    /* =========================================================
+       MAIN LAYOUT: CANVAS + CONTROLS/READOUTS + STEPS PANEL
+       ========================================================= */
+    main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 390px;
+      grid-template-rows: 1fr auto;
+      height: calc(100vh - 60px);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Left: Canvas Area */
+    .canvas-container {
+      position: relative;
+      background: var(--bg);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .canvas-overlay-controls {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      gap: 8px;
+      z-index: 10;
+      pointer-events: none;
+    }
+
+    .canvas-overlay-controls > * {
+      pointer-events: auto;
+    }
+
+    .canvas-badge {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .canvas-toolbar {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      display: flex;
+      gap: 6px;
+      z-index: 10;
+    }
+
+    .canvas-view-toggle {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      gap: 4px;
+      background: var(--surface);
+      padding: 3px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      z-index: 10;
+    }
+
+    .toggle-pill-btn {
+      background: none;
+      border: none;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 6px;
+      color: var(--text-muted);
+      cursor: pointer;
+    }
+
+    .toggle-pill-btn.active {
+      background: var(--accent);
+      color: white;
+    }
+
+    #canvas2d {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    #canvas2d:active {
+      cursor: grabbing;
+    }
+
+    #three-viewport {
+      width: 100%;
+      height: 100%;
+      display: none;
+      cursor: grab;
+      touch-action: none;
+    }
+
+    #three-viewport:active {
+      cursor: grabbing;
+    }
+
+    /* Live ARIA region */
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border-width: 0;
+    }
+
+    /* Canvas tooltip */
+    .canvas-tooltip {
+      position: absolute;
+      pointer-events: none;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text);
+      box-shadow: var(--shadow-popover);
+      transform: translate(-50%, -130%);
+      opacity: 0;
+      transition: opacity 0.15s;
+      z-index: 20;
+      white-space: nowrap;
+    }
+    .canvas-tooltip.visible {
+      opacity: 1;
+    }
+
+    /* Right: Control & Readout Sidebar */
+    .sidebar {
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 16px;
+    }
+
+    .section-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .section-title {
+      font-size: 0.85rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Matrix Editor Components */
+    .matrix-editor-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .matrix-bracket-box {
+      display: inline-flex;
+      align-items: center;
+      position: relative;
+      padding: 4px 10px;
+    }
+
+    .matrix-bracket-box::before,
+    .matrix-bracket-box::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      bottom: 2px;
+      width: 5px;
+      border: 2px solid var(--text);
+    }
+    .matrix-bracket-box::before {
+      left: 2px;
+      border-right: none;
+      border-radius: 4px 0 0 4px;
+    }
+    .matrix-bracket-box::after {
+      right: 2px;
+      border-left: none;
+      border-radius: 0 4px 4px 0;
+    }
+
+    .matrix-grid {
+      display: grid;
+      gap: 6px;
+    }
+
+    .matrix-cell-input {
+      font-family: var(--font-mono);
+      font-size: 0.875rem;
+      font-variant-numeric: tabular-nums;
+      text-align: center;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      width: 56px;
+      min-height: 36px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      cursor: ew-resize;
+    }
+
+    .matrix-cell-input:focus {
+      border-color: var(--accent);
+      background: var(--surface);
+      cursor: text;
+    }
+
+    .matrix-cell-input.invalid {
+      border-color: var(--err);
+      background: rgba(201, 42, 42, 0.08);
+    }
+
+    .matrix-cell-input.pivot-cell {
+      border-color: var(--colspace);
+      box-shadow: 0 0 0 1px var(--colspace);
+    }
+
+    /* Vector Chip */
+    .vector-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+    }
+
+    .vector-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    /* Sliders */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .slider-row label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      width: 24px;
+      font-family: var(--font-mono);
+    }
+
+    input[type="range"] {
+      flex: 1;
+      height: 6px;
+      background: var(--surface-2);
+      border-radius: 3px;
+      outline: none;
+      accent-color: var(--accent);
+    }
+
+    .slider-value {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      min-width: 40px;
+      text-align: right;
+    }
+
+    /* Presets Pill Menu */
+    .preset-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .preset-pill {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.78rem;
+      padding: 4px 10px;
+      border-radius: var(--radius-pill);
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+    .preset-pill:hover {
+      background: var(--accent-light);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Readouts & Badges */
+    .readout-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .readout-card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      position: relative;
+    }
+
+    .readout-label {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .readout-val {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .status-badge {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: var(--radius-pill);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .badge-ok {
+      background: rgba(43, 138, 62, 0.15);
+      color: var(--ok);
+    }
+    .badge-warn {
+      background: rgba(230, 119, 0, 0.15);
+      color: var(--warn);
+    }
+    .badge-err {
+      background: rgba(201, 42, 42, 0.15);
+      color: var(--err);
+    }
+
+    /* Banners */
+    .banner {
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.8rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.4;
+    }
+    .banner-info {
+      background: rgba(59, 91, 219, 0.1);
+      border: 1px solid rgba(59, 91, 219, 0.25);
+      color: var(--accent);
+    }
+    .banner-warn {
+      background: rgba(230, 119, 0, 0.1);
+      border: 1px solid rgba(230, 119, 0, 0.25);
+      color: var(--warn);
+    }
+    .banner-err {
+      background: rgba(201, 42, 42, 0.1);
+      border: 1px solid rgba(201, 42, 42, 0.25);
+      color: var(--err);
+    }
+
+    /* =========================================================
+       BOTTOM: STEPS & REPLAY PANEL
+       ========================================================= */
+    .steps-drawer {
+      grid-column: 1 / -1;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      max-height: 280px;
+      transition: max-height 0.2s ease;
+      z-index: 50;
+    }
+
+    .steps-drawer.collapsed {
+      max-height: 42px;
+      overflow: hidden;
+    }
+
+    .steps-header {
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .steps-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .steps-header-title {
+      font-size: 0.825rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .steps-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .step-btn {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .step-btn:hover { background: var(--border); }
+    .step-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .steps-content {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      height: 238px;
+      overflow: hidden;
+    }
+
+    .steps-timeline {
+      overflow-y: auto;
+      padding: 12px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .step-item {
+      padding: 8px 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .step-item.active {
+      border-color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    .step-badge {
+      font-size: 0.7rem;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--border);
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .step-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .step-text {
+      font-size: 0.825rem;
+      font-weight: 600;
+      color: var(--text);
+      font-family: var(--font-mono);
+    }
+
+    .step-why {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .steps-matrix-preview {
+      border-left: 1px solid var(--border);
+      background: var(--surface);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .preview-matrix-table {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      border-collapse: collapse;
+    }
+
+    .preview-matrix-table td {
+      padding: 4px 8px;
+      text-align: center;
+      border: 1px solid transparent;
+    }
+
+    .preview-matrix-table td.highlight-cell {
+      background: rgba(245, 159, 0, 0.2);
+      border-color: var(--eigen);
+      font-weight: 700;
+    }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 1000;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: var(--text);
+      color: var(--surface);
+      padding: 10px 16px;
+      border-radius: var(--radius-sm);
+      font-size: 0.85rem;
+      font-weight: 500;
+      box-shadow: var(--shadow-popover);
+      animation: toastIn 0.2s ease;
+      pointer-events: auto;
+    }
+
+    @keyframes toastIn {
+      from { transform: translateY(10px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    /* Self-Test Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      backdrop-filter: blur(4px);
+    }
+
+    .modal-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      width: min(720px, 94vw);
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-popover);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* Responsive Breakdown */
+    @media (max-width: 1023px) {
+      main {
+        grid-template-columns: 1fr;
+        grid-template-rows: 400px auto auto;
+        height: auto;
+        overflow-y: auto;
+      }
+      .steps-content {
+        grid-template-columns: 1fr;
+      }
+      .steps-matrix-preview {
+        display: none;
+      }
+    }
+
+    @media (max-width: 639px) {
+      header {
+        height: auto;
+        padding: 8px 12px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+      }
+      .header-actions {
+        justify-content: space-between;
+      }
+      .matrix-cell-input {
+        width: 44px;
+        min-height: 44px; /* 44px touch target */
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Live Accessibility Region -->
+  <div id="aria-status" class="sr-only" aria-live="polite">
+    Linear Algebra Playground initialized.
+  </div>
+
+  <!-- Header -->
+  <header>
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <a href="#" class="brand" title="BAMAT205 Linear Algebra Playground">
+        <div class="brand-icon">LA</div>
+        <span>LA Playground</span>
+      </a>
+      <span class="badge-course">BAMAT205</span>
+      <div id="mode-badge" class="mode-badge mode-exact" title="Exact rational arithmetic active (Frac/BigInt)">
+        Exact Mode
+      </div>
+    </div>
+
+    <!-- 6 Lab Tabs -->
+    <nav class="tab-bar" role="tablist" aria-label="Playground Labs">
+      <button class="tab-btn active" role="tab" id="tab-studio" data-lab="studio" aria-selected="true">
+        <span>1. Transformation Studio</span>
+      </button>
+      <button class="tab-btn" role="tab" id="tab-subspace" data-lab="subspace" aria-selected="false">
+        <span>2. Subspaces &amp; Nullity</span>
+      </button>
+      <button class="tab-btn" role="tab" id="tab-span" data-lab="span" aria-selected="false">
+        <span>3. Span &amp; Independence</span>
+      </button>
+      <button class="tab-btn" role="tab" id="tab-basis" data-lab="basis" aria-selected="false">
+        <span>4. Change of Basis</span>
+      </button>
+      <button class="tab-btn" role="tab" id="tab-inner" data-lab="inner" aria-selected="false">
+        <span>5. Gram-Schmidt</span>
+      </button>
+      <button class="tab-btn" role="tab" id="tab-quad" data-lab="quad" aria-selected="false">
+        <span>6. Quadratic Forms</span>
+      </button>
+    </nav>
+
+    <!-- Header Actions -->
+    <div class="header-actions">
+      <button class="icon-btn" id="btn-undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+      <button class="icon-btn" id="btn-redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
+      <button class="action-btn" id="btn-reset" title="Reset current lab state">Reset</button>
+      <button class="action-btn" id="btn-share" title="Copy shareable URL link">Share</button>
+      <button class="action-btn" id="btn-export-png" title="Export canvas image as PNG">Save PNG</button>
+      <button class="action-btn" id="btn-self-tests" title="Run self-tests (?test=1)">Tests</button>
+      <button class="icon-btn" id="btn-theme-toggle" title="Toggle Dark/Light Mode" aria-label="Toggle Theme">☾</button>
+    </div>
+  </header>
+
+  <!-- Main View Area -->
+  <main>
+    <!-- Left: Canvas Area -->
+    <section class="canvas-container" aria-label="Interactive Geometry Canvas">
+      <!-- Overlay status -->
+      <div class="canvas-overlay-controls">
+        <div class="canvas-badge" id="canvas-status-badge">
+          <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--accent);"></span>
+          <span id="canvas-status-text">Drag basis vectors or use panel controls</span>
+        </div>
+      </div>
+
+      <!-- View Switcher (2D / 3D) -->
+      <div class="canvas-view-toggle">
+        <button class="toggle-pill-btn active" id="btn-view-2d">2D</button>
+        <button class="toggle-pill-btn" id="btn-view-3d">3D</button>
+      </div>
+
+      <!-- Canvas Toolbar (Zoom, Reset View) -->
+      <div class="canvas-toolbar">
+        <button class="icon-btn" id="btn-zoom-in" title="Zoom In">+</button>
+        <button class="icon-btn" id="btn-zoom-out" title="Zoom Out">−</button>
+        <button class="icon-btn" id="btn-zoom-reset" title="Reset View">⊙</button>
+      </div>
+
+      <!-- 2D Canvas -->
+      <canvas id="canvas2d" width="800" height="600" aria-label="2D Linear Transformation Canvas" role="img"></canvas>
+
+      <!-- 3D Viewport container -->
+      <div id="three-viewport" aria-label="3D Linear Transformation Viewport" role="img"></div>
+
+      <!-- Tooltip -->
+      <div id="canvas-tooltip" class="canvas-tooltip"></div>
+    </section>
+
+    <!-- Right: Sidebar (Controls & Readouts) -->
+    <aside class="sidebar" id="sidebar-container" aria-label="Lab Controls and Mathematical Readouts">
+      <!-- Dynamically filled by active lab controller -->
+    </aside>
+
+    <!-- Bottom: Replayable Step-by-Step Panel -->
+    <footer class="steps-drawer" id="steps-drawer" aria-label="Step-by-Step Algorithm Walkthrough">
+      <div class="steps-header" id="steps-toggle-btn">
+        <div class="steps-header-left">
+          <span class="steps-header-title">
+            <span>⚡ Step-by-Step Solution &amp; Working</span>
+            <span id="steps-count-badge" class="badge-course">0 steps</span>
+          </span>
+          <div class="steps-controls" onclick="event.stopPropagation()">
+            <button class="step-btn" id="step-btn-prev" title="Previous Step">◀ Prev</button>
+            <button class="step-btn" id="step-btn-play" title="Auto Play Steps">▶ Play</button>
+            <button class="step-btn" id="step-btn-next" title="Next Step">Next ▶</button>
+          </div>
+        </div>
+        <div style="font-size:0.8rem; color:var(--text-muted);">
+          <span id="steps-toggle-icon">▼</span>
+        </div>
+      </div>
+
+      <div class="steps-content">
+        <div class="steps-timeline" id="steps-timeline">
+          <!-- Step items rendered here -->
+        </div>
+        <div class="steps-matrix-preview" id="steps-matrix-preview">
+          <div style="font-size:0.75rem; font-weight:700; color:var(--text-muted); text-transform:uppercase;">
+            Matrix State at Step
+          </div>
+          <div id="step-matrix-display" class="matrix-bracket-box">
+            <!-- Matrix preview table -->
+          </div>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Self-Test Modal Container -->
+  <div id="modal-container"></div>
+
+  <script>
+    /* =========================================================
+       1. CONSTANTS & CONFIG (Section 3.3 & Section 8.2)
+       ========================================================= */
+    const EPS = 1e-10;
+    const MAX_HISTORY = 100;
+
+    const THEME_COLORS = {
+      iHat: '#E03131',
+      jHat: '#2F9E44',
+      kHat: '#1C7ED6',
+      colspace: '#0CA678',
+      rowspace: '#7048E8',
+      nullspace: '#F76707',
+      eigen: '#F59F00',
+      result: '#1B2230',
+      border: '#D8DEE8',
+      gridFaint: 'rgba(150, 160, 175, 0.25)',
+      gridBold: 'rgba(59, 91, 219, 0.4)'
+    };
+
+    function easeInOutCubic(t) {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
+    function gcd(a, b) {
+      let x = a < 0n ? -a : a;
+      let y = b < 0n ? -b : b;
+      while (y !== 0n) {
+        const t = y;
+        y = x % y;
+        x = t;
+      }
+      return x;
+    }
+
+    /* =========================================================
+       2. FRAC (Exact Rationals on BigInt)
+       ========================================================= */
+    class Frac {
+      constructor(n, d = 1n) {
+        if (n instanceof Frac) {
+          this.n = n.n;
+          this.d = n.d;
+          return;
+        }
+        if (typeof n === 'number') {
+          if (!Number.isFinite(n)) throw new Error('Non-finite number');
+          if (Number.isInteger(n)) {
+            n = BigInt(n);
+            d = 1n;
+          } else {
+            const s = n.toString();
+            const parts = s.split('.');
+            if (parts.length === 2) {
+              const decPlaces = parts[1].length;
+              const factor = 10n ** BigInt(decPlaces);
+              const intPart = BigInt(parts[0]);
+              const fracPart = BigInt(parts[1]);
+              const sign = parts[0].startsWith('-') ? -1n : 1n;
+              const absInt = intPart < 0n ? -intPart : intPart;
+              n = sign * (absInt * factor + fracPart);
+              d = factor;
+            } else {
+              n = BigInt(Math.round(n * 1e8));
+              d = 100000000n;
+            }
+          }
+        } else if (typeof n === 'string') {
+          const trimmed = n.trim();
+          if (trimmed.includes('/')) {
+            const [ns, ds] = trimmed.split('/');
+            n = BigInt(ns.trim());
+            d = BigInt(ds.trim());
+          } else if (trimmed.includes('.')) {
+            const parts = trimmed.split('.');
+            const factor = 10n ** BigInt(parts[1].length);
+            const intPart = BigInt(parts[0]);
+            const fracPart = BigInt(parts[1]);
+            const sign = parts[0].startsWith('-') ? -1n : 1n;
+            const absInt = intPart < 0n ? -intPart : intPart;
+            n = sign * (absInt * factor + fracPart);
+            d = factor;
+          } else {
+            n = BigInt(trimmed);
+            d = 1n;
+          }
+        } else if (typeof n !== 'bigint') {
+          n = BigInt(n);
+        }
+        if (typeof d !== 'bigint') d = BigInt(d);
+        if (d === 0n) throw new Error('Division by zero in Frac');
+        if (d < 0n) {
+          n = -n;
+          d = -d;
+        }
+        const g = gcd(n, d);
+        this.n = n / g;
+        this.d = d / g;
+      }
+
+      static from(val) {
+        if (val instanceof Frac) return val;
+        return new Frac(val);
+      }
+
+      add(o) {
+        const other = Frac.from(o);
+        return new Frac(this.n * other.d + other.n * this.d, this.d * other.d);
+      }
+
+      sub(o) {
+        const other = Frac.from(o);
+        return new Frac(this.n * other.d - other.n * this.d, this.d * other.d);
+      }
+
+      mul(o) {
+        const other = Frac.from(o);
+        return new Frac(this.n * other.n, this.d * other.d);
+      }
+
+      div(o) {
+        const other = Frac.from(o);
+        if (other.n === 0n) throw new Error('Division by zero');
+        return new Frac(this.n * other.d, this.d * other.n);
+      }
+
+      neg() { return new Frac(-this.n, this.d); }
+      abs() { return new Frac(this.n < 0n ? -this.n : this.n, this.d); }
+      isZero() { return this.n === 0n; }
+
+      cmp(o) {
+        const other = Frac.from(o);
+        const diff = this.n * other.d - other.n * this.d;
+        if (diff < 0n) return -1;
+        if (diff > 0n) return 1;
+        return 0;
+      }
+
+      toNumber() { return Number(this.n) / Number(this.d); }
+
+      toString() {
+        if (this.d === 1n) return this.n.toString();
+        const numDigits = this.n.toString().replace('-', '').length;
+        const denDigits = this.d.toString().length;
+        if (numDigits > 12 || denDigits > 12) {
+          return this.toNumber().toFixed(4).replace(/\.?0+$/, '');
+        }
+        return `${this.n}/${this.d}`;
+      }
+
+      clone() { return new Frac(this.n, this.d); }
+    }
+
+    const F = {
+      isZero: (x) => Math.abs(x) < EPS,
+      eq: (a, b) => Math.abs(a - b) < EPS,
+      clean: (x) => {
+        if (Math.abs(x) < EPS) return 0;
+        const r = Math.round(x);
+        if (Math.abs(x - r) < EPS) return r;
+        return x;
+      },
+      format: (x) => {
+        const c = F.clean(x);
+        if (c === 0) return '0';
+        if (Number.isInteger(c)) return c.toString();
+        return c.toFixed(4).replace(/\.?0+$/, '');
+      }
+    };
+
+    /* =========================================================
+       3. LINEAR ALGEBRA CORE (Pure Math Module)
+       ========================================================= */
+    const Vec = {
+      create: (arr) => arr.slice(),
+      dim: (v) => v.length,
+      add: (u, v) => u.map((x, i) => x + v[i]),
+      sub: (u, v) => u.map((x, i) => x - v[i]),
+      scale: (u, s) => u.map((x) => x * s),
+      dot: (u, v) => u.reduce((sum, x, i) => sum + x * v[i], 0),
+      normSq: (u) => Vec.dot(u, u),
+      norm: (u) => Math.sqrt(Vec.normSq(u)),
+      normalize: (u) => {
+        const n = Vec.norm(u);
+        if (n < EPS) return u.map(() => 0);
+        return u.map((x) => x / n);
+      },
+      proj: (u, v) => {
+        const uNormSq = Vec.dot(u, u);
+        if (uNormSq < EPS) return u.map(() => 0);
+        const factor = Vec.dot(v, u) / uNormSq;
+        return Vec.scale(u, factor);
+      },
+      angle: (u, v) => {
+        const nu = Vec.norm(u);
+        const nv = Vec.norm(v);
+        if (nu < EPS || nv < EPS) {
+          return { rad: 0, deg: 0, kind: 'zero', error: 'Zero vector has undefined angle' };
+        }
+        const cosTheta = Math.max(-1, Math.min(1, Vec.dot(u, v) / (nu * nv)));
+        const rad = Math.acos(cosTheta);
+        const deg = (rad * 180) / Math.PI;
+        let kind = 'acute';
+        if (Math.abs(cosTheta) < 1e-7) kind = 'right';
+        else if (cosTheta < 0) kind = 'obtuse';
+        return { rad, deg, kind, cosTheta };
+      },
+      cross: (u, v) => {
+        if (u.length === 3 && v.length === 3) {
+          return [
+            u[1] * v[2] - u[2] * v[1],
+            u[2] * v[0] - u[0] * v[2],
+            u[0] * v[1] - u[1] * v[0]
+          ];
+        }
+        return [0, 0, 0];
+      }
+    };
+
+    const Mat = {
+      create: (rows, cols, fill = 0) => Array.from({ length: rows }, () => Array(cols).fill(fill)),
+      clone: (A) => A.map((row) => row.slice()),
+      rows: (A) => A.length,
+      cols: (A) => (A.length > 0 ? A[0].length : 0),
+      identity: (n) => {
+        const I = Mat.create(n, n, 0);
+        for (let i = 0; i < n; i++) I[i][i] = 1;
+        return I;
+      },
+      row: (A, i) => A[i].slice(),
+      col: (A, j) => A.map((r) => r[j]),
+      transpose: (A) => {
+        const m = Mat.rows(A);
+        const n = Mat.cols(A);
+        const T = Mat.create(n, m);
+        for (let i = 0; i < m; i++) {
+          for (let j = 0; j < n; j++) T[j][i] = A[i][j];
+        }
+        return T;
+      },
+      mul: (A, B) => {
+        const m = Mat.rows(A);
+        const k = Mat.cols(A);
+        const n = Mat.cols(B);
+        const C = Mat.create(m, n, 0);
+        for (let i = 0; i < m; i++) {
+          for (let j = 0; j < n; j++) {
+            let sum = 0;
+            for (let p = 0; p < k; p++) sum += A[i][p] * B[p][j];
+            C[i][j] = sum;
+          }
+        }
+        return C;
+      },
+      mulVec: (A, v) => {
+        const m = Mat.rows(A);
+        const n = Mat.cols(A);
+        const out = Array(m).fill(0);
+        for (let i = 0; i < m; i++) {
+          let sum = 0;
+          for (let j = 0; j < n; j++) sum += A[i][j] * v[j];
+          out[i] = sum;
+        }
+        return out;
+      },
+      clean: (A) => A.map((row) => row.map(F.clean))
+    };
+
+    function isExactEligible(M) {
+      for (let r = 0; r < M.length; r++) {
+        for (let c = 0; c < M[r].length; c++) {
+          const v = M[r][c];
+          if (v instanceof Frac) continue;
+          if (typeof v === 'string') {
+            if (!/^[-+]?\d+(\.\d+)?(\/\d+)?$/.test(v.trim())) return false;
+          } else if (typeof v === 'number') {
+            if (!Number.isFinite(v)) return false;
+            const str = v.toString();
+            if (str.includes('e') || str.includes('E')) return false;
+          } else {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    function rref(A, exactMode = false) {
+      const m = Mat.rows(A);
+      const n = Mat.cols(A);
+      const steps = [];
+      let stepId = 1;
+
+      if (exactMode) {
+        const M = A.map((row) => row.map((val) => Frac.from(val)));
+        const pivots = [];
+        let r = 0;
+
+        steps.push({
+          id: stepId++,
+          kind: 'note',
+          text: 'Initial matrix in exact rational mode',
+          why: 'Begin Gauss-Jordan elimination',
+          matrix: M.map((row) => row.map((x) => x.toString())),
+          highlight: { cells: [], rows: [], cols: [] }
+        });
+
+        for (let c = 0; c < n && r < m; c++) {
+          let p = -1;
+          for (let i = r; i < m; i++) {
+            if (!M[i][c].isZero()) {
+              p = i;
+              break;
+            }
+          }
+          if (p === -1) continue;
+
+          if (p !== r) {
+            const temp = M[r];
+            M[r] = M[p];
+            M[p] = temp;
+            steps.push({
+              id: stepId++,
+              kind: 'rowOp',
+              text: `R${r + 1} ↔ R${p + 1}`,
+              why: `Bring nonzero entry in column ${c + 1} to pivot row ${r + 1}`,
+              matrix: M.map((row) => row.map((x) => x.toString())),
+              highlight: { cells: [], rows: [r, p], cols: [c] }
+            });
+          }
+
+          const pivotVal = M[r][c];
+          if (pivotVal.cmp(1) !== 0) {
+            for (let j = 0; j < n; j++) M[r][j] = M[r][j].div(pivotVal);
+            steps.push({
+              id: stepId++,
+              kind: 'rowOp',
+              text: `R${r + 1} → R${r + 1} / (${pivotVal.toString()})`,
+              why: `Scale leading entry in column ${c + 1} to 1`,
+              matrix: M.map((row) => row.map((x) => x.toString())),
+              highlight: { cells: [[r, c]], rows: [r], cols: [c] }
+            });
+          }
+
+          for (let i = 0; i < m; i++) {
+            if (i !== r && !M[i][c].isZero()) {
+              const factor = M[i][c];
+              for (let j = 0; j < n; j++) {
+                M[i][j] = M[i][j].sub(factor.mul(M[r][j]));
+              }
+              steps.push({
+                id: stepId++,
+                kind: 'rowOp',
+                text: `R${i + 1} → R${i + 1} - (${factor.toString()})·R${r + 1}`,
+                why: `Clear entry at row ${i + 1}, column ${c + 1}`,
+                matrix: M.map((row) => row.map((x) => x.toString())),
+                highlight: { cells: [[i, c]], rows: [i], cols: [c] }
+              });
+            }
+          }
+          pivots.push(c);
+          r++;
+        }
+
+        steps.push({
+          id: stepId++,
+          kind: 'result',
+          text: `RREF reached with rank = ${pivots.length}`,
+          why: 'All pivot columns are reduced standard basis vectors',
+          matrix: M.map((row) => row.map((x) => x.toString())),
+          highlight: { cells: pivots.map((cIdx, rIdx) => [rIdx, cIdx]), rows: [], cols: pivots }
+        });
+
+        return {
+          R: M.map((row) => row.map((x) => x.toNumber())),
+          RFrac: M,
+          pivots,
+          steps,
+          ops: steps.length
+        };
+      } else {
+        const M = A.map((row) => row.map((val) => (val instanceof Frac ? val.toNumber() : Number(val))));
+        const pivots = [];
+        let r = 0;
+
+        steps.push({
+          id: stepId++,
+          kind: 'note',
+          text: 'Initial matrix in float mode',
+          why: 'Begin Gauss-Jordan elimination with partial pivoting',
+          matrix: Mat.clean(M).map((row) => row.map(F.format)),
+          highlight: { cells: [], rows: [], cols: [] }
+        });
+
+        for (let c = 0; c < n && r < m; c++) {
+          let maxVal = -1;
+          let p = -1;
+          for (let i = r; i < m; i++) {
+            const absVal = Math.abs(M[i][c]);
+            if (absVal > EPS && absVal > maxVal) {
+              maxVal = absVal;
+              p = i;
+            }
+          }
+          if (p === -1) continue;
+
+          if (p !== r) {
+            const temp = M[r];
+            M[r] = M[p];
+            M[p] = temp;
+            steps.push({
+              id: stepId++,
+              kind: 'rowOp',
+              text: `R${r + 1} ↔ R${p + 1}`,
+              why: `Swap row ${r + 1} with row ${p + 1} for numerical stability (pivot ${F.format(M[r][c])})`,
+              matrix: Mat.clean(M).map((row) => row.map(F.format)),
+              highlight: { cells: [], rows: [r, p], cols: [c] }
+            });
+          }
+
+          const pivotVal = M[r][c];
+          if (Math.abs(pivotVal - 1) > EPS) {
+            for (let j = 0; j < n; j++) M[r][j] /= pivotVal;
+            steps.push({
+              id: stepId++,
+              kind: 'rowOp',
+              text: `R${r + 1} → R${r + 1} / ${F.format(pivotVal)}`,
+              why: `Scale leading entry in column ${c + 1} to 1`,
+              matrix: Mat.clean(M).map((row) => row.map(F.format)),
+              highlight: { cells: [[r, c]], rows: [r], cols: [c] }
+            });
+          }
+
+          for (let i = 0; i < m; i++) {
+            if (i !== r && Math.abs(M[i][c]) > EPS) {
+              const factor = M[i][c];
+              for (let j = 0; j < n; j++) M[i][j] -= factor * M[r][j];
+              steps.push({
+                id: stepId++,
+                kind: 'rowOp',
+                text: `R${i + 1} → R${i + 1} - (${F.format(factor)})·R${r + 1}`,
+                why: `Clear entry at row ${i + 1}, column ${c + 1}`,
+                matrix: Mat.clean(M).map((row) => row.map(F.format)),
+                highlight: { cells: [[i, c]], rows: [i], cols: [c] }
+              });
+            }
+          }
+          pivots.push(c);
+          r++;
+        }
+
+        steps.push({
+          id: stepId++,
+          kind: 'result',
+          text: `RREF reached with rank = ${pivots.length}`,
+          why: 'All pivot columns are reduced standard basis vectors',
+          matrix: Mat.clean(M).map((row) => row.map(F.format)),
+          highlight: { cells: pivots.map((cIdx, rIdx) => [rIdx, cIdx]), rows: [], cols: pivots }
+        });
+
+        return {
+          R: Mat.clean(M),
+          pivots,
+          steps,
+          ops: steps.length
+        };
+      }
+    }
+
+    function rank(A) {
+      return rref(A).pivots.length;
+    }
+
+    function rankNullity(A) {
+      const n = Mat.cols(A);
+      const r = rank(A);
+      const nullity = n - r;
+      return { rank: r, nullity, n, holds: r + nullity === n };
+    }
+
+    function colSpaceBasis(A) {
+      const { pivots } = rref(A);
+      return pivots.map((c) => Mat.col(A, c));
+    }
+
+    function rowSpaceBasis(A) {
+      const { R, pivots } = rref(A);
+      return pivots.map((_, rIdx) => R[rIdx].slice());
+    }
+
+    function nullSpaceBasis(A, exactMode = false) {
+      const n = Mat.cols(A);
+      const { R, pivots } = rref(A, exactMode);
+      const freeCols = [];
+      for (let c = 0; c < n; c++) {
+        if (!pivots.includes(c)) freeCols.push(c);
+      }
+
+      const basis = [];
+      for (const freeCol of freeCols) {
+        const vec = Array(n).fill(0);
+        vec[freeCol] = 1;
+        for (let r = 0; r < pivots.length; r++) {
+          const pCol = pivots[r];
+          vec[pCol] = -R[r][freeCol];
+        }
+        basis.push(vec);
+      }
+      return basis;
+    }
+
+    function det(A) {
+      const n = Mat.rows(A);
+      if (n !== Mat.cols(A)) throw new Error('det requires square matrix');
+      if (n === 1) return A[0][0];
+      if (n === 2) return A[0][0] * A[1][1] - A[0][1] * A[1][0];
+      if (n === 3) {
+        return (
+          A[0][0] * (A[1][1] * A[2][2] - A[1][2] * A[2][1]) -
+          A[0][1] * (A[1][0] * A[2][2] - A[1][2] * A[2][0]) +
+          A[0][2] * (A[1][0] * A[2][1] - A[1][1] * A[2][0])
+        );
+      }
+      const M = Mat.clone(A);
+      let d = 1;
+      let swaps = 0;
+      for (let c = 0; c < n; c++) {
+        let p = -1;
+        let max = -1;
+        for (let r = c; r < n; r++) {
+          if (Math.abs(M[r][c]) > max && Math.abs(M[r][c]) > EPS) {
+            max = Math.abs(M[r][c]);
+            p = r;
+          }
+        }
+        if (p === -1) return 0;
+        if (p !== c) {
+          const temp = M[c];
+          M[c] = M[p];
+          M[p] = temp;
+          swaps++;
+        }
+        const pivot = M[c][c];
+        d *= pivot;
+        for (let r = c + 1; r < n; r++) {
+          if (Math.abs(M[r][c]) > EPS) {
+            const factor = M[r][c] / pivot;
+            for (let j = c; j < n; j++) M[r][j] -= factor * M[c][j];
+          }
+        }
+      }
+      return swaps % 2 === 1 ? -d : d;
+    }
+
+    function inverse(A, exactMode = false) {
+      const n = Mat.rows(A);
+      if (n !== Mat.cols(A)) return null;
+      const d = det(A);
+      if (Math.abs(d) < EPS) return null;
+
+      if (exactMode && isExactEligible(A)) {
+        const aug = Mat.create(n, 2 * n);
+        for (let i = 0; i < n; i++) {
+          for (let j = 0; j < n; j++) aug[i][j] = Frac.from(A[i][j]);
+          for (let j = 0; j < n; j++) aug[i][n + j] = i === j ? new Frac(1n, 1n) : new Frac(0n, 1n);
+        }
+        const { RFrac, pivots } = rref(aug, true);
+        if (pivots.length < n) return null;
+        const invFrac = Mat.create(n, n);
+        for (let i = 0; i < n; i++) {
+          for (let j = 0; j < n; j++) invFrac[i][j] = RFrac[i][n + j];
+        }
+        return {
+          Ainv: invFrac.map((row) => row.map((x) => x.toNumber())),
+          AinvFrac: invFrac,
+          det: d
+        };
+      } else {
+        const aug = Mat.create(n, 2 * n);
+        for (let i = 0; i < n; i++) {
+          for (let j = 0; j < n; j++) aug[i][j] = A[i][j];
+          for (let j = 0; j < n; j++) aug[i][n + j] = i === j ? 1 : 0;
+        }
+        const { R, pivots } = rref(aug, false);
+        if (pivots.length < n) return null;
+        const inv = Mat.create(n, n);
+        for (let i = 0; i < n; i++) {
+          for (let j = 0; j < n; j++) inv[i][j] = R[i][n + j];
+        }
+        return {
+          Ainv: Mat.clean(inv),
+          det: d
+        };
+      }
+    }
+
+    function solve(A, b) {
+      const m = Mat.rows(A);
+      const n = Mat.cols(A);
+      const aug = Mat.create(m, n + 1);
+      for (let i = 0; i < m; i++) {
+        for (let j = 0; j < n; j++) aug[i][j] = A[i][j];
+        aug[i][n] = b[i];
+      }
+      const { R, pivots } = rref(aug, false);
+
+      if (pivots.includes(n)) {
+        return { type: 'none', message: 'Inconsistent system: 0 = 1' };
+      }
+
+      const particular = Array(n).fill(0);
+      for (let r = 0; r < pivots.length; r++) {
+        particular[pivots[r]] = R[r][n];
+      }
+
+      if (pivots.length === n) {
+        return { type: 'unique', solution: particular };
+      }
+
+      const freeCols = [];
+      for (let c = 0; c < n; c++) {
+        if (!pivots.includes(c)) freeCols.push(c);
+      }
+      const nullBasis = nullSpaceBasis(A);
+      return {
+        type: 'infinite',
+        solution: particular,
+        parameters: freeCols,
+        nullBasis
+      };
+    }
+
+    function isIndependent(vectors) {
+      const m = vectors[0].length;
+      const n = vectors.length;
+      const V = Mat.create(m, n);
+      for (let j = 0; j < n; j++) {
+        for (let i = 0; i < m; i++) V[i][j] = vectors[j][i];
+      }
+      const { pivots } = rref(V, false);
+      const independent = pivots.length === n;
+      if (independent) {
+        return { independent: true, relation: null };
+      }
+
+      const nullBasis = nullSpaceBasis(V);
+      const coeffs = nullBasis[0] || [];
+      const terms = [];
+      for (let i = 0; i < coeffs.length; i++) {
+        const c = F.clean(coeffs[i]);
+        if (Math.abs(c) > EPS) {
+          const sub = ['₁', '₂', '₃', '₄'][i] || `${i + 1}`;
+          let cStr = '';
+          if (c === 1) cStr = `v${sub}`;
+          else if (c === -1) cStr = `-v${sub}`;
+          else cStr = `${F.format(c)}v${sub}`;
+          terms.push({ coeff: c, str: cStr });
+        }
+      }
+      const relStr = terms.map((t, idx) => {
+        if (idx === 0) return t.str;
+        if (t.coeff > 0) return `+ ${t.str}`;
+        return `- ${t.str.replace('-', '')}`;
+      }).join(' ') + ' = 0';
+
+      return { independent: false, relation: relStr, coeffs };
+    }
+
+    function inSpan(vectors, target) {
+      const m = vectors[0].length;
+      const n = vectors.length;
+      const V = Mat.create(m, n);
+      for (let j = 0; j < n; j++) {
+        for (let i = 0; i < m; i++) V[i][j] = vectors[j][i];
+      }
+      const sol = solve(V, target);
+      if (sol.type === 'none') return { yes: false, coeffs: null };
+      return { yes: true, coeffs: sol.solution };
+    }
+
+    function basisFromSpanning(vectors) {
+      const m = vectors[0].length;
+      const n = vectors.length;
+      const V = Mat.create(m, n);
+      for (let j = 0; j < n; j++) {
+        for (let i = 0; i < m; i++) V[i][j] = vectors[j][i];
+      }
+      const { pivots } = rref(V);
+      return pivots.map((p) => vectors[p]);
+    }
+
+    function coordinates(basisB, v) {
+      const n = basisB.length;
+      const BMat = Mat.create(n, n);
+      for (let j = 0; j < n; j++) {
+        for (let i = 0; i < n; i++) BMat[i][j] = basisB[j][i];
+      }
+      const sol = solve(BMat, v);
+      return sol.solution;
+    }
+
+    function changeOfBasis(B, Bprime) {
+      const invBprime = inverse(Bprime);
+      if (!invBprime) return null;
+      return Mat.mul(invBprime.Ainv, B);
+    }
+
+    function matrixInBasis(A, B) {
+      const invB = inverse(B);
+      if (!invB) return null;
+      const temp = Mat.mul(invB.Ainv, A);
+      return Mat.mul(temp, B);
+    }
+
+    function eigen2(A) {
+      const a = A[0][0];
+      const b = A[0][1];
+      const c = A[1][0];
+      const d = A[1][1];
+      const tr = a + d;
+      const detVal = a * d - b * c;
+      const disc = tr * tr - 4 * detVal;
+
+      if (disc < -EPS) {
+        const real = tr / 2;
+        const imag = Math.sqrt(-disc) / 2;
+        return {
+          type: 'complex',
+          values: [
+            { real, imag },
+            { real, imag: -imag }
+          ],
+          vectors: []
+        };
+      }
+
+      const dSqrt = Math.sqrt(Math.max(0, disc));
+      const l1 = (tr + dSqrt) / 2;
+      const l2 = (tr - dSqrt) / 2;
+
+      function getVec(lambda) {
+        const m11 = a - lambda;
+        const m12 = b;
+        const m21 = c;
+        const m22 = d - lambda;
+        if (Math.abs(m12) > EPS || Math.abs(m11) > EPS) {
+          return Vec.normalize([-m12, m11]);
+        }
+        if (Math.abs(m22) > EPS || Math.abs(m21) > EPS) {
+          return Vec.normalize([-m22, m21]);
+        }
+        return [1, 0];
+      }
+
+      const v1 = getVec(l1);
+      const v2 = Math.abs(l1 - l2) < EPS ? null : getVec(l2);
+
+      return {
+        type: 'real',
+        values: [l1, l2],
+        vectors: v2 ? [v1, v2] : [v1]
+      };
+    }
+
+    function eigenSym(S) {
+      const n = Mat.rows(S);
+      let A = Mat.clone(S);
+      let V = Mat.identity(n);
+      const maxSweeps = 50;
+
+      for (let sweep = 0; sweep < maxSweeps; sweep++) {
+        let maxOff = 0;
+        let p = 0, q = 1;
+        for (let i = 0; i < n; i++) {
+          for (let j = i + 1; j < n; j++) {
+            if (Math.abs(A[i][j]) > maxOff) {
+              maxOff = Math.abs(A[i][j]);
+              p = i;
+              q = j;
+            }
+          }
+        }
+
+        if (maxOff < 1e-12) break;
+
+        const app = A[p][p];
+        const aqq = A[q][q];
+        const apq = A[p][q];
+        const phi = 0.5 * Math.atan2(2 * apq, aqq - app);
+        const c = Math.cos(phi);
+        const s = Math.sin(phi);
+
+        const J = Mat.identity(n);
+        J[p][p] = c;
+        J[p][q] = s;
+        J[q][p] = -s;
+        J[q][q] = c;
+
+        A = Mat.mul(Mat.transpose(J), Mat.mul(A, J));
+        V = Mat.mul(V, J);
+      }
+
+      const values = [];
+      const vectors = [];
+      for (let i = 0; i < n; i++) {
+        values.push(F.clean(A[i][i]));
+        vectors.push(Mat.col(V, i));
+      }
+      return { values, vectors };
+    }
+
+    function gramSchmidt(vectors) {
+      const steps = [];
+      const uList = [];
+      const eList = [];
+
+      steps.push({
+        stage: 0,
+        title: 'Input vectors',
+        caption: `Given ${vectors.length} vectors in R^${vectors[0].length}`,
+        vectors: vectors.map((v) => v.slice())
+      });
+
+      for (let i = 0; i < vectors.length; i++) {
+        const v = vectors[i];
+        let u = v.slice();
+        const projSteps = [];
+
+        for (let j = 0; j < uList.length; j++) {
+          const p = Vec.proj(uList[j], v);
+          projSteps.push({ onto: j, proj: p });
+          u = Vec.sub(u, p);
+        }
+
+        const normU = Vec.norm(u);
+        if (normU < EPS) {
+          steps.push({
+            stage: i + 1,
+            title: `Vector v${i + 1} is linearly dependent`,
+            caption: `Residual norm < EPS. Skipped vector v${i + 1}.`,
+            skipped: true
+          });
+          continue;
+        }
+
+        uList.push(u);
+        const e = Vec.scale(u, 1 / normU);
+        eList.push(e);
+
+        steps.push({
+          stage: i + 1,
+          title: `Compute orthogonal vector u${i + 1}`,
+          caption: `Subtracted projections on previous vectors: u${i + 1} = v${i + 1} - sum(proj)`,
+          u: u.slice(),
+          e: e.slice(),
+          projSteps
+        });
+      }
+
+      steps.push({
+        stage: vectors.length + 1,
+        title: 'Normalize to orthonormal basis',
+        caption: 'Scaled each orthogonal vector u_i to unit vector e_i = u_i / ||u_i||',
+        orthonormal: eList.map((e) => e.slice())
+      });
+
+      return {
+        orthogonal: uList,
+        orthonormal: eList,
+        steps
+      };
+    }
+
+    function gram(vectors) {
+      const n = vectors.length;
+      const G = Mat.create(n, n);
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+          G[i][j] = F.clean(Vec.dot(vectors[i], vectors[j]));
+        }
+      }
+      return G;
+    }
+
+    function classifyQuadratic(S) {
+      const n = Mat.rows(S);
+      const sym = Mat.create(n, n);
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < n; j++) {
+          sym[i][j] = (S[i][j] + S[j][i]) / 2;
+        }
+      }
+
+      const minors = [];
+      for (let k = 1; k <= n; k++) {
+        const sub = Mat.create(k, k);
+        for (let i = 0; i < k; i++) {
+          for (let j = 0; j < k; j++) sub[i][j] = sym[i][j];
+        }
+        minors.push(F.clean(det(sub)));
+      }
+
+      const { values } = eigenSym(sym);
+      const posCount = values.filter((v) => v > EPS).length;
+      const negCount = values.filter((v) => v < -EPS).length;
+      const zeroCount = values.filter((v) => Math.abs(v) <= EPS).length;
+
+      let kind = 'indefinite';
+      let reasoning = '';
+
+      if (posCount === n) {
+        kind = 'positive definite';
+        reasoning = 'All eigenvalues > 0, and all leading principal minors > 0.';
+      } else if (negCount === n) {
+        kind = 'negative definite';
+        reasoning = 'All eigenvalues < 0; leading principal minors alternate signs starting negative.';
+      } else if (posCount > 0 && negCount === 0 && zeroCount > 0) {
+        kind = 'positive semidefinite';
+        reasoning = 'All eigenvalues ≥ 0 with at least one zero eigenvalue.';
+      } else if (negCount > 0 && posCount === 0 && zeroCount > 0) {
+        kind = 'negative semidefinite';
+        reasoning = 'All eigenvalues ≤ 0 with at least one zero eigenvalue.';
+      } else {
+        kind = 'indefinite';
+        reasoning = 'Has both positive and negative eigenvalues; surface is saddle-shaped.';
+      }
+
+      return { kind, eigenvalues: values, minors, reasoning, sym };
+    }
+
+    /* =========================================================
+       5. STATE MANAGEMENT & STORE (Section 5)
+       ========================================================= */
+    const defaultState = {
+      mode: 'exact',
+      activeLab: 'studio',
+      studio: {
+        dim: 2,
+        A: [[1, 0], [0, 1]],
+        t: 1,
+        showEigen: true,
+        showUnitShape: true,
+        isCircle: false,
+        rotationTrue: false,
+        v: [1.5, 1.0],
+        compActive: false,
+        B: [[1, 1], [0, 1]]
+      },
+      subspace: {
+        A: [
+          [1, 2, 3],
+          [2, 4, 6],
+          [1, 0, 1]
+        ],
+        stepIndex: 0,
+        b: [1, 2, 0]
+      },
+      span: {
+        dim: 3,
+        vectors: [
+          [1, 0, 0],
+          [0, 1, 0]
+        ],
+        coeffs: [1, 1],
+        target: [1, 1, 0]
+      },
+      basis: {
+        B: [
+          [1, 0],
+          [0, 1]
+        ],
+        Bp: [
+          [1, 1],
+          [-1, 1]
+        ],
+        v: [3, 2],
+        T: [
+          [2, 0],
+          [0, 1]
+        ]
+      },
+      inner: {
+        dim: 3,
+        vectors: [
+          [1, 1, 0],
+          [1, 0, 1],
+          [0, 1, 1]
+        ],
+        stage: 0,
+        weighted: false,
+        W: [
+          [2, 0, 0],
+          [0, 2, 0],
+          [0, 0, 2]
+        ]
+      },
+      quad: {
+        dim: 2,
+        S: [
+          [2, 0],
+          [0, 3]
+        ]
+      },
+      ui: {
+        theme: 'auto',
+        stepsOpen: true
+      }
+    };
+
+    class Store {
+      constructor(initialState) {
+        this.state = JSON.parse(JSON.stringify(initialState));
+        this.listeners = new Map();
+        this.history = [];
+        this.historyIndex = -1;
+        this.pushHistory();
+      }
+
+      getState() {
+        return this.state;
+      }
+
+      pushHistory() {
+        if (this.historyIndex < this.history.length - 1) {
+          this.history = this.history.slice(0, this.historyIndex + 1);
+        }
+        this.history.push(JSON.stringify(this.state));
+        if (this.history.length > MAX_HISTORY) this.history.shift();
+        this.historyIndex = this.history.length - 1;
+      }
+
+      undo() {
+        if (this.historyIndex > 0) {
+          this.historyIndex--;
+          this.state = JSON.parse(this.history[this.historyIndex]);
+          this.notifyAll();
+          showToast('Undo');
+        }
+      }
+
+      redo() {
+        if (this.historyIndex < this.history.length - 1) {
+          this.historyIndex++;
+          this.state = JSON.parse(this.history[this.historyIndex]);
+          this.notifyAll();
+          showToast('Redo');
+        }
+      }
+
+      dispatch(action) {
+        const prev = JSON.stringify(this.state);
+        this.reducer(action);
+        if (JSON.stringify(this.state) !== prev) {
+          if (!action.noHistory) this.pushHistory();
+          this.notify(action.keys || [action.type]);
+          this.saveToStorage();
+        }
+      }
+
+      reducer(action) {
+        const s = this.state;
+        switch (action.type) {
+          case 'SET_ACTIVE_LAB':
+            s.activeLab = action.lab;
+            break;
+          case 'SET_THEME':
+            s.ui.theme = action.theme;
+            break;
+          case 'TOGGLE_STEPS':
+            s.ui.stepsOpen = !s.ui.stepsOpen;
+            break;
+          case 'SET_STUDIO_ENTRY':
+            s.studio.A[action.r][action.c] = action.value;
+            break;
+          case 'SET_STUDIO_MATRIX':
+            s.studio.A = action.A;
+            break;
+          case 'SET_STUDIO_DIM':
+            s.studio.dim = action.dim;
+            if (action.dim === 2) {
+              s.studio.A = [[1, 0], [0, 1]];
+            } else {
+              s.studio.A = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+            }
+            break;
+          case 'SET_STUDIO_T':
+            s.studio.t = action.t;
+            break;
+          case 'SET_STUDIO_OPTION':
+            s.studio[action.key] = action.value;
+            break;
+          case 'SET_SUBSPACE_MATRIX':
+            s.subspace.A = action.A;
+            s.subspace.stepIndex = 0;
+            break;
+          case 'SET_SUBSPACE_STEP':
+            s.subspace.stepIndex = action.index;
+            break;
+          case 'SET_SPAN_VECTORS':
+            s.span.vectors = action.vectors;
+            break;
+          case 'SET_SPAN_COEFFS':
+            s.span.coeffs = action.coeffs;
+            break;
+          case 'SET_SPAN_TARGET':
+            s.span.target = action.target;
+            break;
+          case 'SET_BASIS_STATE':
+            Object.assign(s.basis, action.data);
+            break;
+          case 'SET_INNER_STATE':
+            Object.assign(s.inner, action.data);
+            break;
+          case 'SET_QUAD_STATE':
+            Object.assign(s.quad, action.data);
+            break;
+          case 'RESET_LAB':
+            s[action.lab] = JSON.parse(JSON.stringify(defaultState[action.lab]));
+            break;
+        }
+
+        // Auto update mode badge based on active lab
+        this.updateMode();
+      }
+
+      updateMode() {
+        const lab = this.state.activeLab;
+        let isExact = true;
+        if (lab === 'studio') isExact = isExactEligible(this.state.studio.A);
+        else if (lab === 'subspace') isExact = isExactEligible(this.state.subspace.A);
+        else if (lab === 'span') isExact = isExactEligible(this.state.span.vectors);
+        else if (lab === 'basis') isExact = isExactEligible(this.state.basis.B) && isExactEligible(this.state.basis.Bp);
+        else if (lab === 'inner') isExact = isExactEligible(this.state.inner.vectors);
+        else if (lab === 'quad') isExact = isExactEligible(this.state.quad.S);
+        this.state.mode = isExact ? 'exact' : 'float';
+      }
+
+      subscribe(keys, fn) {
+        for (const k of keys) {
+          if (!this.listeners.has(k)) this.listeners.set(k, []);
+          this.listeners.get(k).push(fn);
+        }
+      }
+
+      notify(keys) {
+        const notified = new Set();
+        for (const k of keys) {
+          if (this.listeners.has(k)) {
+            for (const fn of this.listeners.get(k)) {
+              if (!notified.has(fn)) {
+                notified.add(fn);
+                fn(this.state);
+              }
+            }
+          }
+        }
+        if (this.listeners.has('*')) {
+          for (const fn of this.listeners.get('*')) {
+            if (!notified.has(fn)) {
+              notified.add(fn);
+              fn(this.state);
+            }
+          }
+        }
+      }
+
+      notifyAll() {
+        this.notify(['*']);
+      }
+
+      saveToStorage() {
+        try {
+          localStorage.setItem('la_playground_state', JSON.stringify(this.state));
+        } catch (e) {}
+      }
+    }
+
+    const store = new Store(defaultState);
+
+    /* =========================================================
+       6. CANVAS 2D RENDERER (Section 7.1)
+       ========================================================= */
+    class Canvas2DRenderer {
+      constructor(canvasId) {
+        this.canvas = document.getElementById(canvasId);
+        this.ctx = this.canvas.getContext('2d');
+        this.scale = 40; // px per math unit
+        this.origin = { x: 0, y: 0 };
+        this.isDragging = false;
+        this.dragTarget = null;
+        this.dragOffset = { x: 0, y: 0 };
+        this.panStart = { x: 0, y: 0 };
+        this.handles = [];
+
+        this.initEvents();
+        this.resize();
+        window.addEventListener('resize', () => this.resize());
+      }
+
+      resize() {
+        const dpr = window.devicePixelRatio || 1;
+        const rect = this.canvas.getBoundingClientRect();
+        this.canvas.width = rect.width * dpr;
+        this.canvas.height = rect.height * dpr;
+        this.ctx.resetTransform();
+        this.ctx.scale(dpr, dpr);
+        this.origin = { x: rect.width / 2, y: rect.height / 2 };
+        this.render();
+      }
+
+      worldToScreen(x, y) {
+        return {
+          sx: this.origin.x + x * this.scale,
+          sy: this.origin.y - y * this.scale
+        };
+      }
+
+      screenToWorld(sx, sy) {
+        return {
+          x: (sx - this.origin.x) / this.scale,
+          y: (this.origin.y - sy) / this.scale
+        };
+      }
+
+      clear() {
+        const rect = this.canvas.getBoundingClientRect();
+        this.ctx.clearRect(0, 0, rect.width, rect.height);
+      }
+
+      drawGrid(transformedMat = null) {
+        const rect = this.canvas.getBoundingClientRect();
+        const ctx = this.ctx;
+
+        const leftWorld = this.screenToWorld(0, 0).x;
+        const rightWorld = this.screenToWorld(rect.width, 0).x;
+        const topWorld = this.screenToWorld(0, 0).y;
+        const bottomWorld = this.screenToWorld(0, rect.height).y;
+
+        // Faint standard grid
+        ctx.strokeStyle = THEME_COLORS.gridFaint;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+
+        const xMin = Math.floor(leftWorld) - 1;
+        const xMax = Math.ceil(rightWorld) + 1;
+        const yMin = Math.floor(bottomWorld) - 1;
+        const yMax = Math.ceil(topWorld) + 1;
+
+        for (let x = xMin; x <= xMax; x++) {
+          const s = this.worldToScreen(x, 0);
+          ctx.moveTo(s.sx, 0);
+          ctx.lineTo(s.sx, rect.height);
+        }
+        for (let y = yMin; y <= yMax; y++) {
+          const s = this.worldToScreen(0, y);
+          ctx.moveTo(0, s.sy);
+          ctx.lineTo(rect.width, s.sy);
+        }
+        ctx.stroke();
+
+        // Axes
+        ctx.strokeStyle = 'var(--text-muted)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        const originScreen = this.worldToScreen(0, 0);
+        ctx.moveTo(0, originScreen.sy);
+        ctx.lineTo(rect.width, originScreen.sy);
+        ctx.moveTo(originScreen.sx, 0);
+        ctx.lineTo(originScreen.sx, rect.height);
+        ctx.stroke();
+
+        // Transformed Grid if supplied
+        if (transformedMat) {
+          ctx.strokeStyle = THEME_COLORS.gridBold;
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          const N = 20;
+          for (let i = -N; i <= N; i++) {
+            // Lines parallel to col 0
+            const p1 = Mat.mulVec(transformedMat, [i, -N]);
+            const p2 = Mat.mulVec(transformedMat, [i, N]);
+            const s1 = this.worldToScreen(p1[0], p1[1]);
+            const s2 = this.worldToScreen(p2[0], p2[1]);
+            ctx.moveTo(s1.sx, s1.sy);
+            ctx.lineTo(s2.sx, s2.sy);
+
+            // Lines parallel to col 1
+            const q1 = Mat.mulVec(transformedMat, [-N, i]);
+            const q2 = Mat.mulVec(transformedMat, [N, i]);
+            const t1 = this.worldToScreen(q1[0], q1[1]);
+            const t2 = this.worldToScreen(q2[0], q2[1]);
+            ctx.moveTo(t1.sx, t1.sy);
+            ctx.lineTo(t2.sx, t2.sy);
+          }
+          ctx.stroke();
+        }
+      }
+
+      drawArrow(from, to, color = '#1B2230', lineWidth = 2.5, dashed = false) {
+        const ctx = this.ctx;
+        const p1 = this.worldToScreen(from[0], from[1]);
+        const p2 = this.worldToScreen(to[0], to[1]);
+
+        const dx = p2.sx - p1.sx;
+        const dy = p2.sy - p1.sy;
+        const len = Math.hypot(dx, dy);
+        if (len < 2) return;
+
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = lineWidth;
+        if (dashed) ctx.setLineDash([4, 4]);
+
+        ctx.beginPath();
+        ctx.moveTo(p1.sx, p1.sy);
+        ctx.lineTo(p2.sx, p2.sy);
+        ctx.stroke();
+
+        // Arrow head
+        ctx.setLineDash([]);
+        const headLen = 10;
+        const angle = Math.atan2(dy, dx);
+        ctx.beginPath();
+        ctx.moveTo(p2.sx, p2.sy);
+        ctx.lineTo(p2.sx - headLen * Math.cos(angle - Math.PI / 6), p2.sy - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(p2.sx - headLen * Math.cos(angle + Math.PI / 6), p2.sy - headLen * Math.sin(angle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      drawHandle(pos, color = '#3B5BDB', radius = 6) {
+        const ctx = this.ctx;
+        const s = this.worldToScreen(pos[0], pos[1]);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(s.sx, s.sy, radius + 2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(s.sx, s.sy, radius, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      initEvents() {
+        const canvas = this.canvas;
+        const tooltip = document.getElementById('canvas-tooltip');
+
+        canvas.addEventListener('pointerdown', (e) => {
+          const rect = canvas.getBoundingClientRect();
+          const sx = e.clientX - rect.left;
+          const sy = e.clientY - rect.top;
+
+          // Check hit on handles
+          const hitRadius = e.pointerType === 'touch' ? 22 : 14;
+          let foundHandle = null;
+
+          for (const h of this.handles) {
+            const hs = this.worldToScreen(h.pos[0], h.pos[1]);
+            const dist = Math.hypot(sx - hs.sx, sy - hs.sy);
+            if (dist <= hitRadius) {
+              foundHandle = h;
+              break;
+            }
+          }
+
+          if (foundHandle) {
+            this.isDragging = true;
+            this.dragTarget = foundHandle;
+            canvas.setPointerCapture(e.pointerId);
+          } else {
+            // Pan start
+            this.isPanning = true;
+            this.panStart = { x: sx - this.origin.x, y: sy - this.origin.y };
+          }
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+          const rect = canvas.getBoundingClientRect();
+          const sx = e.clientX - rect.left;
+          const sy = e.clientY - rect.top;
+          const world = this.screenToWorld(sx, sy);
+
+          if (this.isDragging && this.dragTarget) {
+            const snappedX = Math.round(world.x * 2) / 2;
+            const snappedY = Math.round(world.y * 2) / 2;
+            this.dragTarget.onDrag([snappedX, snappedY]);
+            this.render();
+
+            tooltip.textContent = `(${snappedX.toFixed(2)}, ${snappedY.toFixed(2)})`;
+            tooltip.style.left = `${sx}px`;
+            tooltip.style.top = `${sy}px`;
+            tooltip.classList.add('visible');
+          } else if (this.isPanning) {
+            this.origin.x = sx - this.panStart.x;
+            this.origin.y = sy - this.panStart.y;
+            this.render();
+          } else {
+            // Hover check
+            let hovering = false;
+            for (const h of this.handles) {
+              const hs = this.worldToScreen(h.pos[0], h.pos[1]);
+              if (Math.hypot(sx - hs.sx, sy - hs.sy) < 14) {
+                hovering = true;
+                tooltip.textContent = `${h.label}: (${h.pos[0].toFixed(2)}, ${h.pos[1].toFixed(2)})`;
+                tooltip.style.left = `${sx}px`;
+                tooltip.style.top = `${sy}px`;
+                tooltip.classList.add('visible');
+                break;
+              }
+            }
+            if (!hovering) tooltip.classList.remove('visible');
+          }
+        });
+
+        const endDrag = (e) => {
+          this.isDragging = false;
+          this.isPanning = false;
+          this.dragTarget = null;
+          tooltip.classList.remove('visible');
+        };
+
+        canvas.addEventListener('pointerup', endDrag);
+        canvas.addEventListener('pointercancel', endDrag);
+
+        canvas.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+          this.scale = Math.max(10, Math.min(160, this.scale * zoomFactor));
+          this.render();
+        }, { passive: false });
+
+        document.getElementById('btn-zoom-in')?.addEventListener('click', () => {
+          this.scale = Math.min(160, this.scale * 1.2);
+          this.render();
+        });
+        document.getElementById('btn-zoom-out')?.addEventListener('click', () => {
+          this.scale = Math.max(10, this.scale / 1.2);
+          this.render();
+        });
+        document.getElementById('btn-zoom-reset')?.addEventListener('click', () => {
+          this.scale = 40;
+          const rect = canvas.getBoundingClientRect();
+          this.origin = { x: rect.width / 2, y: rect.height / 2 };
+          this.render();
+        });
+      }
+
+      setHandles(handles) {
+        this.handles = handles;
+      }
+
+      render() {
+        // Render hook implemented by active lab
+        if (this.onRender) this.onRender();
+      }
+    }
+
+    const canvas2D = new Canvas2DRenderer('canvas2d');
+
+    /* =========================================================
+       7. THREE.JS 3D RENDERER (Section 7.2)
+       ========================================================= */
+    class Three3DRenderer {
+      constructor(containerId) {
+        this.container = document.getElementById(containerId);
+        this.activeGroup = null;
+        this.init();
+      }
+
+      init() {
+        if (!window.THREE) {
+          console.warn('Three.js is not loaded');
+          return;
+        }
+
+        const width = this.container.clientWidth || 800;
+        const height = this.container.clientHeight || 600;
+
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
+        this.camera.position.set(6, 5, 8);
+        this.camera.lookAt(0, 0, 0);
+
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
+        this.renderer.setSize(width, height);
+        this.renderer.setPixelRatio(window.devicePixelRatio || 1);
+        this.container.appendChild(this.renderer.domElement);
+
+        // Lighting
+        const amb = new THREE.AmbientLight(0xffffff, 0.7);
+        this.scene.add(amb);
+        const dir = new THREE.DirectionalLight(0xffffff, 0.6);
+        dir.position.set(5, 10, 7);
+        this.scene.add(dir);
+
+        // Axes helper
+        const axes = new THREE.AxesHelper(5);
+        this.scene.add(axes);
+
+        // Subtle xz grid
+        const grid = new THREE.GridHelper(10, 10, 0x888888, 0x444444);
+        grid.position.y = -0.01;
+        this.scene.add(grid);
+
+        this.initControls();
+        this.animate();
+      }
+
+      initControls() {
+        let isDown = false;
+        let startX = 0, startY = 0;
+        let spherical = { radius: 12, theta: 0.8, phi: 0.9 };
+
+        const updateCamera = () => {
+          spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi));
+          this.camera.position.x = spherical.radius * Math.sin(spherical.phi) * Math.sin(spherical.theta);
+          this.camera.position.y = spherical.radius * Math.cos(spherical.phi);
+          this.camera.position.z = spherical.radius * Math.sin(spherical.phi) * Math.cos(spherical.theta);
+          this.camera.lookAt(0, 0, 0);
+        };
+
+        const dom = this.renderer.domElement;
+        dom.addEventListener('pointerdown', (e) => {
+          isDown = true;
+          startX = e.clientX;
+          startY = e.clientY;
+          dom.setPointerCapture(e.pointerId);
+        });
+
+        dom.addEventListener('pointermove', (e) => {
+          if (!isDown) return;
+          const dx = e.clientX - startX;
+          const dy = e.clientY - startY;
+          startX = e.clientX;
+          startY = e.clientY;
+
+          spherical.theta -= dx * 0.008;
+          spherical.phi -= dy * 0.008;
+          updateCamera();
+        });
+
+        const onUp = () => { isDown = false; };
+        dom.addEventListener('pointerup', onUp);
+        dom.addEventListener('pointercancel', onUp);
+
+        dom.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          spherical.radius = Math.max(3, Math.min(40, spherical.radius + (e.deltaY > 0 ? 0.8 : -0.8)));
+          updateCamera();
+        }, { passive: false });
+
+        dom.addEventListener('dblclick', () => {
+          spherical = { radius: 12, theta: 0.8, phi: 0.9 };
+          updateCamera();
+        });
+
+        updateCamera();
+      }
+
+      setGroup(group) {
+        if (this.activeGroup) {
+          this.scene.remove(this.activeGroup);
+          // Clean disposal
+          this.activeGroup.traverse((obj) => {
+            if (obj.geometry) obj.geometry.dispose();
+            if (obj.material) {
+              if (Array.isArray(obj.material)) obj.material.forEach((m) => m.dispose());
+              else obj.material.dispose();
+            }
+          });
+        }
+        this.activeGroup = group;
+        if (group) this.scene.add(group);
+      }
+
+      resize() {
+        const width = this.container.clientWidth;
+        const height = this.container.clientHeight;
+        if (width && height && this.renderer && this.camera) {
+          this.camera.aspect = width / height;
+          this.camera.updateProjectionMatrix();
+          this.renderer.setSize(width, height);
+        }
+      }
+
+      animate() {
+        requestAnimationFrame(() => this.animate());
+        if (this.container.style.display !== 'none' && this.renderer && this.scene && this.camera) {
+          this.renderer.render(this.scene, this.camera);
+        }
+      }
+    }
+
+    const three3D = new Three3DRenderer('three-viewport');
+
+    /* =========================================================
+       8. UI COMPONENTS & HELPERS
+       ========================================================= */
+    function showToast(msg) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = msg;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.3s';
+        setTimeout(() => toast.remove(), 300);
+      }, 2500);
+    }
+
+    function announceAria(msg) {
+      const el = document.getElementById('aria-status');
+      if (el) el.textContent = msg;
+    }
+
+    function createMatrixEditor(matrix, onChange, labels = { row: 'R', col: 'C' }) {
+      const rows = Mat.rows(matrix);
+      const cols = Mat.cols(matrix);
+      const wrapper = document.createElement('div');
+      wrapper.className = 'matrix-bracket-box';
+
+      const grid = document.createElement('div');
+      grid.className = 'matrix-grid';
+      grid.style.gridTemplateColumns = `repeat(${cols}, auto)`;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const input = document.createElement('input');
+          input.className = 'matrix-cell-input';
+          input.value = F.format(matrix[r][c]);
+          input.setAttribute('aria-label', `${labels.row}${r + 1}, ${labels.col}${c + 1}`);
+
+          // Typing change
+          input.addEventListener('change', () => {
+            const valStr = input.value.trim();
+            try {
+              let val;
+              if (valStr.includes('/')) {
+                const frac = new Frac(valStr);
+                val = frac.toNumber();
+              } else {
+                val = parseFloat(valStr);
+                if (isNaN(val)) throw new Error('Not a number');
+              }
+              input.classList.remove('invalid');
+              onChange(r, c, val);
+            } catch (err) {
+              input.classList.add('invalid');
+              showToast('Invalid entry. Enter a number or fraction like 3/4');
+            }
+          });
+
+          // Click-drag scrubbing
+          let startX = 0;
+          let startVal = 0;
+          let isScrubbing = false;
+
+          input.addEventListener('pointerdown', (e) => {
+            startX = e.clientX;
+            startVal = parseFloat(input.value) || 0;
+            isScrubbing = false;
+          });
+
+          input.addEventListener('pointermove', (e) => {
+            if (e.buttons === 1) {
+              const dx = e.clientX - startX;
+              if (Math.abs(dx) > 3) {
+                isScrubbing = true;
+                const step = e.shiftKey ? 1.0 : 0.1;
+                const delta = Math.round((dx / 4) * step * 10) / 10;
+                const newVal = Math.round((startVal + delta) * 10) / 10;
+                input.value = newVal;
+                onChange(r, c, newVal);
+              }
+            }
+          });
+
+          grid.appendChild(input);
+        }
+      }
+
+      wrapper.appendChild(grid);
+      return wrapper;
+    }
+
+    /* =========================================================
+       9. LAB CONTROLLERS (6 Labs Implementation)
+       ========================================================= */
+
+    // --- LAB 1: TRANSFORMATION STUDIO ---
+    const StudioLab = {
+      init() {
+        this.renderSidebar();
+        this.setupCanvas();
+      },
+
+      renderSidebar() {
+        const state = store.getState();
+        const studio = state.studio;
+        const container = document.getElementById('sidebar-container');
+        container.innerHTML = '';
+
+        const A = studio.A;
+        const d = det(A);
+        const tr = A.length === 2 ? A[0][0] + A[1][1] : A[0][0] + A[1][1] + A[2][2];
+        const r = rank(A);
+        const isInvertible = Math.abs(d) > EPS;
+        const invRes = inverse(A);
+        const eigenRes = studio.dim === 2 ? eigen2(A) : null;
+
+        // Card 1: Matrix Input & Dimension toggle
+        const card1 = document.createElement('div');
+        card1.className = 'section-card';
+        card1.innerHTML = `
+          <div class="section-title">
+            <span>Matrix A</span>
+            <div style="display:flex; gap:4px;">
+              <button class="toggle-pill-btn ${studio.dim === 2 ? 'active' : ''}" id="dim-2d-btn">2×2</button>
+              <button class="toggle-pill-btn ${studio.dim === 3 ? 'active' : ''}" id="dim-3d-btn">3×3</button>
+            </div>
+          </div>
+          <div id="studio-matrix-slot"></div>
+          <div class="slider-row">
+            <label>t:</label>
+            <input type="range" id="studio-t-slider" min="0" max="1" step="0.01" value="${studio.t}">
+            <span class="slider-value">${studio.t.toFixed(2)}</span>
+          </div>
+        `;
+        container.appendChild(card1);
+
+        const matrixEditor = createMatrixEditor(studio.A, (r, c, val) => {
+          store.dispatch({ type: 'SET_STUDIO_ENTRY', r, c, value: val, keys: ['studio'] });
+        });
+        card1.querySelector('#studio-matrix-slot').appendChild(matrixEditor);
+
+        card1.querySelector('#dim-2d-btn').onclick = () => {
+          store.dispatch({ type: 'SET_STUDIO_DIM', dim: 2, keys: ['studio'] });
+          this.switchView('2d');
+        };
+        card1.querySelector('#dim-3d-btn').onclick = () => {
+          store.dispatch({ type: 'SET_STUDIO_DIM', dim: 3, keys: ['studio'] });
+          this.switchView('3d');
+        };
+        card1.querySelector('#studio-t-slider').oninput = (e) => {
+          const tVal = parseFloat(e.target.value);
+          card1.querySelector('.slider-value').textContent = tVal.toFixed(2);
+          store.dispatch({ type: 'SET_STUDIO_T', t: tVal, noHistory: true, keys: ['studio'] });
+        };
+
+        // Card 2: Presets
+        const card2 = document.createElement('div');
+        card2.className = 'section-card';
+        card2.innerHTML = `
+          <div class="section-title">Presets</div>
+          <div class="preset-container">
+            <button class="preset-pill" data-preset="id">Identity</button>
+            <button class="preset-pill" data-preset="rot45">Rotate 45°</button>
+            <button class="preset-pill" data-preset="rot90">Rotate 90°</button>
+            <button class="preset-pill" data-preset="scale">Scale (2, 0.5)</button>
+            <button class="preset-pill" data-preset="shear">Shear</button>
+            <button class="preset-pill" data-preset="reflX">Reflect X</button>
+            <button class="preset-pill" data-preset="reflDiag">Reflect y=x</button>
+            <button class="preset-pill" data-preset="projX">Project X</button>
+            <button class="preset-pill" data-preset="singular">Singular (Collapse)</button>
+          </div>
+        `;
+        container.appendChild(card2);
+
+        card2.querySelectorAll('.preset-pill').forEach((btn) => {
+          btn.onclick = () => {
+            const p = btn.dataset.preset;
+            let newA;
+            if (p === 'id') newA = [[1, 0], [0, 1]];
+            else if (p === 'rot45') newA = [[0.7071, -0.7071], [0.7071, 0.7071]];
+            else if (p === 'rot90') newA = [[0, -1], [1, 0]];
+            else if (p === 'scale') newA = [[2, 0], [0, 0.5]];
+            else if (p === 'shear') newA = [[1, 1], [0, 1]];
+            else if (p === 'reflX') newA = [[1, 0], [0, -1]];
+            else if (p === 'reflDiag') newA = [[0, 1], [1, 0]];
+            else if (p === 'projX') newA = [[1, 0], [0, 0]];
+            else if (p === 'singular') newA = [[1, 2], [2, 4]];
+            store.dispatch({ type: 'SET_STUDIO_MATRIX', A: newA, keys: ['studio'] });
+          };
+        });
+
+        // Card 3: Readouts & Invertibility
+        const card3 = document.createElement('div');
+        card3.className = 'section-card';
+        card3.innerHTML = `
+          <div class="section-title">Geometric Readouts</div>
+          <div class="readout-grid">
+            <div class="readout-card" title="Scaling factor of area/volume; sign gives orientation">
+              <span class="readout-label">det(A)</span>
+              <span class="readout-val">${F.format(d)}</span>
+            </div>
+            <div class="readout-card" title="Sum of diagonal entries">
+              <span class="readout-label">Trace</span>
+              <span class="readout-val">${F.format(tr)}</span>
+            </div>
+            <div class="readout-card" title="Dimension of output space">
+              <span class="readout-label">Rank</span>
+              <span class="readout-val">${r}</span>
+            </div>
+            <div class="readout-card">
+              <span class="readout-label">Invertible</span>
+              <span class="readout-val">
+                <span class="status-badge ${isInvertible ? 'badge-ok' : 'badge-err'}">
+                  ${isInvertible ? '✓ Yes' : '✗ Singular'}
+                </span>
+              </span>
+            </div>
+          </div>
+          ${!isInvertible ? `
+            <div class="banner banner-err">
+              ⚠️ This transformation collapses space (det = 0). It has no inverse.
+            </div>
+          ` : `
+            <div style="font-size:0.75rem; color:var(--text-muted); display:flex; flex-direction:column; gap:4px;">
+              <span>Inverse Matrix A⁻¹:</span>
+              <span style="font-family:var(--font-mono); font-weight:600;">
+                [ ${invRes.Ainv.map((row) => `[${row.map(F.format).join(', ')}]`).join(', ')} ]
+              </span>
+            </div>
+          `}
+          ${eigenRes ? `
+            <div style="font-size:0.78rem; display:flex; flex-direction:column; gap:4px;">
+              <span style="font-weight:600;">Eigenvalues:</span>
+              <span style="font-family:var(--font-mono); color:var(--eigen);">
+                ${eigenRes.type === 'real' ? eigenRes.values.map(F.format).join(', ') : 'Complex (rotation-like, no real eigenvectors)'}
+              </span>
+            </div>
+          ` : ''}
+        `;
+        container.appendChild(card3);
+
+        announceAria(`Matrix A transforms space with determinant ${F.format(d)}. Invertible: ${isInvertible ? 'Yes' : 'No'}.`);
+      },
+
+      switchView(mode) {
+        document.getElementById('btn-view-2d').classList.toggle('active', mode === '2d');
+        document.getElementById('btn-view-3d').classList.toggle('active', mode === '3d');
+        document.getElementById('canvas2d').style.display = mode === '2d' ? 'block' : 'none';
+        document.getElementById('three-viewport').style.display = mode === '3d' ? 'block' : 'none';
+        if (mode === '3d') three3D.resize();
+        else canvas2D.resize();
+      },
+
+      setupCanvas() {
+        const state = store.getState();
+        const studio = state.studio;
+
+        if (studio.dim === 2) {
+          this.switchView('2d');
+          const A = studio.A;
+          const t = studio.t;
+
+          // Interpolated matrix M(t) = (1 - t)I + tA
+          const I = Mat.identity(2);
+          const Mt = [
+            [(1 - t) * I[0][0] + t * A[0][0], (1 - t) * I[0][1] + t * A[0][1]],
+            [(1 - t) * I[1][0] + t * A[1][0], (1 - t) * I[1][1] + t * A[1][1]]
+          ];
+
+          const iCol = [Mt[0][0], Mt[1][0]];
+          const jCol = [Mt[0][1], Mt[1][1]];
+          const v = studio.v || [1.5, 1];
+          const Av = Mat.mulVec(Mt, v);
+
+          canvas2D.setHandles([
+            {
+              pos: [A[0][0], A[1][0]],
+              label: 'î tip (col 1)',
+              onDrag: (pos) => {
+                store.dispatch({ type: 'SET_STUDIO_ENTRY', r: 0, c: 0, value: pos[0], keys: ['studio'] });
+                store.dispatch({ type: 'SET_STUDIO_ENTRY', r: 1, c: 0, value: pos[1], keys: ['studio'] });
+              }
+            },
+            {
+              pos: [A[0][1], A[1][1]],
+              label: 'ĵ tip (col 2)',
+              onDrag: (pos) => {
+                store.dispatch({ type: 'SET_STUDIO_ENTRY', r: 0, c: 1, value: pos[0], keys: ['studio'] });
+                store.dispatch({ type: 'SET_STUDIO_ENTRY', r: 1, c: 1, value: pos[1], keys: ['studio'] });
+              }
+            },
+            {
+              pos: v,
+              label: 'Vector v',
+              onDrag: (pos) => {
+                store.dispatch({ type: 'SET_STUDIO_OPTION', key: 'v', value: pos, keys: ['studio'] });
+              }
+            }
+          ]);
+
+          canvas2D.onRender = () => {
+            canvas2D.clear();
+            canvas2D.drawGrid(Mt);
+
+            // Transformed Unit Square Area Shading
+            const p0 = canvas2D.worldToScreen(0, 0);
+            const p1 = canvas2D.worldToScreen(iCol[0], iCol[1]);
+            const p2 = canvas2D.worldToScreen(iCol[0] + jCol[0], iCol[1] + jCol[1]);
+            const p3 = canvas2D.worldToScreen(jCol[0], jCol[1]);
+
+            const ctx = canvas2D.ctx;
+            const detM = det(Mt);
+            ctx.fillStyle = detM >= 0 ? 'rgba(59, 91, 219, 0.18)' : 'rgba(247, 103, 7, 0.25)';
+            ctx.beginPath();
+            ctx.moveTo(p0.sx, p0.sy);
+            ctx.lineTo(p1.sx, p1.sy);
+            ctx.lineTo(p2.sx, p2.sy);
+            ctx.lineTo(p3.sx, p3.sy);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = detM >= 0 ? 'rgba(59, 91, 219, 0.5)' : 'rgba(247, 103, 7, 0.6)';
+            ctx.stroke();
+
+            // Transformed Basis Arrows
+            canvas2D.drawArrow([0, 0], iCol, THEME_COLORS.iHat, 3);
+            canvas2D.drawArrow([0, 0], jCol, THEME_COLORS.jHat, 3);
+
+            // Vector v and Av
+            canvas2D.drawArrow([0, 0], v, '#5B6578', 2);
+            canvas2D.drawArrow([0, 0], Av, THEME_COLORS.result, 2.5);
+            canvas2D.drawArrow(v, Av, 'rgba(150, 150, 150, 0.6)', 1.5, true);
+
+            // Eigenvector lines
+            const eRes = eigen2(A);
+            if (eRes.type === 'real') {
+              for (const eVec of eRes.vectors) {
+                const lineLen = 15;
+                const pA = canvas2D.worldToScreen(-lineLen * eVec[0], -lineLen * eVec[1]);
+                const pB = canvas2D.worldToScreen(lineLen * eVec[0], lineLen * eVec[1]);
+                ctx.save();
+                ctx.strokeStyle = THEME_COLORS.eigen;
+                ctx.setLineDash([5, 5]);
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(pA.sx, pA.sy);
+                ctx.lineTo(pB.sx, pB.sy);
+                ctx.stroke();
+                ctx.restore();
+              }
+            }
+
+            // Draw handles
+            canvas2D.drawHandle([A[0][0], A[1][0]], THEME_COLORS.iHat, 7);
+            canvas2D.drawHandle([A[0][1], A[1][1]], THEME_COLORS.jHat, 7);
+            canvas2D.drawHandle(v, '#5B6578', 6);
+          };
+
+          canvas2D.render();
+        } else {
+          // 3D Three.js
+          this.switchView('3d');
+          const group = new THREE.Group();
+          const A = studio.A;
+
+          // Basis vectors
+          const col0 = new THREE.Vector3(A[0][0], A[1][0], A[2][0]);
+          const col1 = new THREE.Vector3(A[0][1], A[1][1], A[2][1]);
+          const col2 = new THREE.Vector3(A[0][2], A[1][2], A[2][2]);
+
+          const arr0 = new THREE.ArrowHelper(col0.clone().normalize(), new THREE.Vector3(0,0,0), col0.length(), 0xe03131);
+          const arr1 = new THREE.ArrowHelper(col1.clone().normalize(), new THREE.Vector3(0,0,0), col1.length(), 0x2f9e44);
+          const arr2 = new THREE.ArrowHelper(col2.clone().normalize(), new THREE.Vector3(0,0,0), col2.length(), 0x1c7ed6);
+          group.add(arr0);
+          group.add(arr1);
+          group.add(arr2);
+
+          // Transformed Cube
+          const cubeGeo = new THREE.BoxGeometry(1, 1, 1);
+          const cubeMat = new THREE.MeshNormalMaterial({ wireframe: false, opacity: 0.45, transparent: true });
+          const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
+
+          const matrix = new THREE.Matrix4();
+          matrix.set(
+            A[0][0], A[0][1], A[0][2], 0,
+            A[1][0], A[1][1], A[1][2], 0,
+            A[2][0], A[2][1], A[2][2], 0,
+            0, 0, 0, 1
+          );
+          cubeMesh.applyMatrix4(matrix);
+          group.add(cubeMesh);
+
+          three3D.setGroup(group);
+        }
+      }
+    };
+
+    // --- LAB 2: SUBSPACES AND RANK-NULLITY ---
+    const SubspaceLab = {
+      init() {
+        this.renderSidebar();
+        this.setupSteps();
+        this.setupCanvas();
+      },
+
+      renderSidebar() {
+        const state = store.getState();
+        const A = state.subspace.A;
+        const container = document.getElementById('sidebar-container');
+        container.innerHTML = '';
+
+        const rn = rankNullity(A);
+        const colB = colSpaceBasis(A);
+        const rowB = rowSpaceBasis(A);
+        const nullB = nullSpaceBasis(A);
+
+        const card1 = document.createElement('div');
+        card1.className = 'section-card';
+        card1.innerHTML = `
+          <div class="section-title">
+            <span>Matrix A (${Mat.rows(A)}×${Mat.cols(A)})</span>
+            <div style="display:flex; gap:4px;">
+              <button class="action-btn" id="btn-add-row" title="Add Row">+Row</button>
+              <button class="action-btn" id="btn-del-row" title="Remove Row">-Row</button>
+              <button class="action-btn" id="btn-add-col" title="Add Column">+Col</button>
+              <button class="action-btn" id="btn-del-col" title="Remove Column">-Col</button>
+            </div>
+          </div>
+          <div id="subspace-matrix-slot"></div>
+        `;
+        container.appendChild(card1);
+
+        const editor = createMatrixEditor(A, (r, c, val) => {
+          const newA = Mat.clone(A);
+          newA[r][c] = val;
+          store.dispatch({ type: 'SET_SUBSPACE_MATRIX', A: newA, keys: ['subspace'] });
+        });
+        card1.querySelector('#subspace-matrix-slot').appendChild(editor);
+
+        card1.querySelector('#btn-add-row').onclick = () => {
+          if (Mat.rows(A) < 4) {
+            const newA = Mat.clone(A);
+            newA.push(Array(Mat.cols(A)).fill(0));
+            store.dispatch({ type: 'SET_SUBSPACE_MATRIX', A: newA, keys: ['subspace'] });
+          } else showToast('Max 4 rows');
+        };
+        card1.querySelector('#btn-del-row').onclick = () => {
+          if (Mat.rows(A) > 1) {
+            const newA = A.slice(0, -1);
+            store.dispatch({ type: 'SET_SUBSPACE_MATRIX', A: newA, keys: ['subspace'] });
+          }
+        };
+        card1.querySelector('#btn-add-col').onclick = () => {
+          if (Mat.cols(A) < 5) {
+            const newA = A.map((r) => [...r, 0]);
+            store.dispatch({ type: 'SET_SUBSPACE_MATRIX', A: newA, keys: ['subspace'] });
+          } else showToast('Max 5 columns');
+        };
+        card1.querySelector('#btn-del-col').onclick = () => {
+          if (Mat.cols(A) > 1) {
+            const newA = A.map((r) => r.slice(0, -1));
+            store.dispatch({ type: 'SET_SUBSPACE_MATRIX', A: newA, keys: ['subspace'] });
+          }
+        };
+
+        // Card 2: Rank-Nullity Theorem Banner
+        const card2 = document.createElement('div');
+        card2.className = 'section-card';
+        card2.innerHTML = `
+          <div class="section-title">Rank-Nullity Theorem</div>
+          <div class="banner banner-info" style="font-size:0.9rem; font-weight:600; display:flex; flex-direction:column; gap:6px;">
+            <div>rank(A) [${rn.rank}] + nullity(A) [${rn.nullity}] = ${rn.n} columns ✓</div>
+            <div style="width:100%; height:8px; background:var(--surface-2); border-radius:4px; display:flex; overflow:hidden;">
+              <div style="width:${(rn.rank / rn.n) * 100}%; background:var(--colspace);" title="Rank: ${rn.rank}"></div>
+              <div style="width:${(rn.nullity / rn.n) * 100}%; background:var(--nullspace);" title="Nullity: ${rn.nullity}"></div>
+            </div>
+          </div>
+          <div class="readout-grid">
+            <div class="readout-card" style="border-left:3px solid var(--colspace);">
+              <span class="readout-label">Col Space Basis</span>
+              <span class="readout-val" style="font-size:0.75rem;">
+                ${colB.length > 0 ? colB.map((v) => `[${v.map(F.format).join(', ')}]`).join('<br>') : '{0}'}
+              </span>
+            </div>
+            <div class="readout-card" style="border-left:3px solid var(--nullspace);">
+              <span class="readout-label">Null Space Basis</span>
+              <span class="readout-val" style="font-size:0.75rem;">
+                ${nullB.length > 0 ? nullB.map((v) => `[${v.map(F.format).join(', ')}]`).join('<br>') : '{0}'}
+              </span>
+            </div>
+          </div>
+        `;
+        container.appendChild(card2);
+
+        // Card 3: Interactive Subspace Tester
+        const card3 = document.createElement('div');
+        card3.className = 'section-card';
+        card3.innerHTML = `
+          <div class="section-title">Subspace Condition Tester</div>
+          <p style="font-size:0.75rem; color:var(--text-muted);">
+            Test if a subset W ⊆ R³ satisfies the 3 subspace axioms: (1) 0 ∈ W, (2) Closed under +, (3) Closed under scalar multiplication.
+          </p>
+          <div class="preset-container">
+            <button class="preset-pill" data-sub="plane">x + y - z = 0 (Plane)</button>
+            <button class="preset-pill" data-sub="octant">x ≥ 0 (Octant)</button>
+            <button class="preset-pill" data-sub="axes">xy = 0 (Union of Axes)</button>
+            <button class="preset-pill" data-sub="shift">z = 1 (Shifted Plane)</button>
+          </div>
+          <div id="subspace-test-results" style="margin-top:6px;"></div>
+        `;
+        container.appendChild(card3);
+
+        const runSubTest = (type) => {
+          const resSlot = card3.querySelector('#subspace-test-results');
+          if (type === 'plane') {
+            resSlot.innerHTML = `
+              <div class="banner banner-info">
+                ✓ <strong>Subspace!</strong> Passes all 3 axioms. Contains 0, closed under vector addition and scalar multiplication.
+              </div>
+            `;
+          } else if (type === 'octant') {
+            resSlot.innerHTML = `
+              <div class="banner banner-err">
+                ✗ <strong>Not a subspace!</strong> Fails scalar multiplication: vector [1, 2, 0] ∈ W, but (-1)·[1, 2, 0] = [-1, -2, 0] ∉ W (x &lt; 0).
+              </div>
+            `;
+          } else if (type === 'axes') {
+            resSlot.innerHTML = `
+              <div class="banner banner-err">
+                ✗ <strong>Not a subspace!</strong> Fails vector addition: [1, 0, 0] ∈ W and [0, 1, 0] ∈ W, but sum [1, 1, 0] has xy = 1 ≠ 0 ∉ W.
+              </div>
+            `;
+          } else if (type === 'shift') {
+            resSlot.innerHTML = `
+              <div class="banner banner-err">
+                ✗ <strong>Not a subspace!</strong> Does not contain the zero vector [0, 0, 0] (z = 0 ≠ 1).
+              </div>
+            `;
+          }
+        };
+
+        card3.querySelectorAll('.preset-pill').forEach((btn) => {
+          btn.onclick = () => runSubTest(btn.dataset.sub);
+        });
+        runSubTest('plane');
+      },
+
+      setupSteps() {
+        const state = store.getState();
+        const A = state.subspace.A;
+        const isExact = state.mode === 'exact';
+        const { steps } = rref(A, isExact);
+        updateStepsPanel(steps, state.subspace.stepIndex, (idx) => {
+          store.dispatch({ type: 'SET_SUBSPACE_STEP', index: idx, keys: ['subspace'] });
+        });
+      },
+
+      setupCanvas() {
+        const state = store.getState();
+        const A = state.subspace.A;
+
+        // If 3x3, show in 3D Three.js; else 2D
+        if (Mat.rows(A) === 3 && Mat.cols(A) === 3) {
+          document.getElementById('btn-view-2d').classList.remove('active');
+          document.getElementById('btn-view-3d').classList.add('active');
+          document.getElementById('canvas2d').style.display = 'none';
+          document.getElementById('three-viewport').style.display = 'block';
+          three3D.resize();
+
+          const group = new THREE.Group();
+          const colB = colSpaceBasis(A);
+          const nullB = nullSpaceBasis(A);
+
+          // Draw column space
+          if (colB.length === 1) {
+            const v = new THREE.Vector3(colB[0][0], colB[0][1], colB[0][2]);
+            const arr = new THREE.ArrowHelper(v.clone().normalize(), new THREE.Vector3(0,0,0), 6, 0x0ca678);
+            group.add(arr);
+          } else if (colB.length >= 2) {
+            const planeGeo = new THREE.PlaneGeometry(12, 12);
+            const planeMat = new THREE.MeshBasicMaterial({ color: 0x0ca678, opacity: 0.35, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+            const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+
+            const normal = Vec.cross(colB[0], colB[1]);
+            const normV = new THREE.Vector3(normal[0], normal[1], normal[2]).normalize();
+            planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normV);
+            group.add(planeMesh);
+          }
+
+          // Draw null space
+          if (nullB.length === 1) {
+            const nv = new THREE.Vector3(nullB[0][0], nullB[0][1], nullB[0][2]);
+            const arr = new THREE.ArrowHelper(nv.clone().normalize(), new THREE.Vector3(0,0,0), 6, 0xf76707);
+            group.add(arr);
+          }
+
+          three3D.setGroup(group);
+        } else {
+          document.getElementById('btn-view-2d').classList.add('active');
+          document.getElementById('btn-view-3d').classList.remove('active');
+          document.getElementById('canvas2d').style.display = 'block';
+          document.getElementById('three-viewport').style.display = 'none';
+          canvas2D.resize();
+
+          canvas2D.setHandles([]);
+          canvas2D.onRender = () => {
+            canvas2D.clear();
+            canvas2D.drawGrid();
+            // Draw column vectors in 2D projection
+            const colB = colSpaceBasis(A);
+            for (const col of colB) {
+              if (col.length >= 2) canvas2D.drawArrow([0, 0], [col[0], col[1]], THEME_COLORS.colspace, 3);
+            }
+          };
+          canvas2D.render();
+        }
+      }
+    };
+
+    // --- LAB 3: SPAN, INDEPENDENCE, BASIS AND DIMENSION ---
+    const SpanLab = {
+      init() {
+        this.renderSidebar();
+        this.setupCanvas();
+      },
+
+      renderSidebar() {
+        const state = store.getState();
+        const spanState = state.span;
+        const container = document.getElementById('sidebar-container');
+        container.innerHTML = '';
+
+        const vecs = spanState.vectors;
+        const indepRes = isIndependent(vecs);
+        const spanBasis = basisFromSpanning(vecs);
+        const target = spanState.target || [2, 1];
+        const spanCheck = inSpan(vecs, target);
+
+        const card1 = document.createElement('div');
+        card1.className = 'section-card';
+        card1.innerHTML = `
+          <div class="section-title">
+            <span>Vectors ({v₁ ... vₖ})</span>
+            <div style="display:flex; gap:4px;">
+              <button class="action-btn" id="btn-add-vec">+ Vector</button>
+              <button class="action-btn" id="btn-del-vec">- Vector</button>
+            </div>
+          </div>
+          <div id="span-vectors-list" style="display:flex; flex-direction:column; gap:8px;"></div>
+        `;
+        container.appendChild(card1);
+
+        const vList = card1.querySelector('#span-vectors-list');
+        vecs.forEach((v, idx) => {
+          const row = document.createElement('div');
+          row.style.display = 'flex';
+          row.style.alignItems = 'center';
+          row.style.gap = '8px';
+          row.innerHTML = `<span style="font-weight:700; font-family:var(--font-mono); width:24px;">v${idx + 1}:</span>`;
+          const inputEditor = createMatrixEditor([v], (_, c, val) => {
+            const newVecs = vecs.map((item) => item.slice());
+            newVecs[idx][c] = val;
+            store.dispatch({ type: 'SET_SPAN_VECTORS', vectors: newVecs, keys: ['span'] });
+          });
+          row.appendChild(inputEditor);
+          vList.appendChild(row);
+        });
+
+        card1.querySelector('#btn-add-vec').onclick = () => {
+          if (vecs.length < 4) {
+            const newVecs = [...vecs, [1, 1]];
+            store.dispatch({ type: 'SET_SPAN_VECTORS', vectors: newVecs, keys: ['span'] });
+          } else showToast('Max 4 vectors');
+        };
+        card1.querySelector('#btn-del-vec').onclick = () => {
+          if (vecs.length > 1) {
+            const newVecs = vecs.slice(0, -1);
+            store.dispatch({ type: 'SET_SPAN_VECTORS', vectors: newVecs, keys: ['span'] });
+          }
+        };
+
+        // Linear combination sliders
+        const card2 = document.createElement('div');
+        card2.className = 'section-card';
+        card2.innerHTML = `
+          <div class="section-title">Linear Combination: w = c₁v₁ + c₂v₂ + ...</div>
+          <div id="span-sliders-slot" style="display:flex; flex-direction:column; gap:8px;"></div>
+        `;
+        container.appendChild(card2);
+
+        const slidersSlot = card2.querySelector('#span-sliders-slot');
+        const coeffs = spanState.coeffs || [1, 1];
+        vecs.forEach((_, idx) => {
+          const cVal = coeffs[idx] !== undefined ? coeffs[idx] : 1;
+          const sRow = document.createElement('div');
+          sRow.className = 'slider-row';
+          sRow.innerHTML = `
+            <label>c${idx + 1}:</label>
+            <input type="range" min="-3" max="3" step="0.1" value="${cVal}">
+            <span class="slider-value">${cVal.toFixed(1)}</span>
+          `;
+          sRow.querySelector('input').oninput = (e) => {
+            const val = parseFloat(e.target.value);
+            sRow.querySelector('.slider-value').textContent = val.toFixed(1);
+            const newC = coeffs.slice();
+            newC[idx] = val;
+            store.dispatch({ type: 'SET_SPAN_COEFFS', coeffs: newC, noHistory: true, keys: ['span'] });
+          };
+          slidersSlot.appendChild(sRow);
+        });
+
+        // Readouts Card
+        const card3 = document.createElement('div');
+        card3.className = 'section-card';
+        card3.innerHTML = `
+          <div class="section-title">Independence &amp; Span Readouts</div>
+          <div class="readout-grid">
+            <div class="readout-card">
+              <span class="readout-label">Linear Status</span>
+              <span class="readout-val">
+                <span class="status-badge ${indepRes.independent ? 'badge-ok' : 'badge-warn'}">
+                  ${indepRes.independent ? 'Independent ✓' : 'Dependent ✗'}
+                </span>
+              </span>
+            </div>
+            <div class="readout-card">
+              <span class="readout-label">dim(Span)</span>
+              <span class="readout-val">${spanBasis.length}</span>
+            </div>
+          </div>
+          ${!indepRes.independent ? `
+            <div class="banner banner-warn">
+              Relation: <strong>${indepRes.relation}</strong>
+            </div>
+          ` : ''}
+          <div class="banner ${spanCheck.yes ? 'banner-info' : 'banner-err'}">
+            Target b: ${spanCheck.yes ? `In Span! Coeffs: [${spanCheck.coeffs.map(F.format).join(', ')}]` : 'NOT in Span!'}
+          </div>
+        `;
+        container.appendChild(card3);
+      },
+
+      setupCanvas() {
+        const state = store.getState();
+        const spanState = state.span;
+        const vecs = spanState.vectors;
+        const coeffs = spanState.coeffs || [1, 1];
+        const target = spanState.target || [2, 1];
+
+        document.getElementById('btn-view-2d').classList.add('active');
+        document.getElementById('btn-view-3d').classList.remove('active');
+        document.getElementById('canvas2d').style.display = 'block';
+        document.getElementById('three-viewport').style.display = 'none';
+        canvas2D.resize();
+
+        // Tip-to-tail linear combination computation
+        let currentPos = [0, 0];
+        const chainPoints = [currentPos];
+        for (let i = 0; i < vecs.length; i++) {
+          const c = coeffs[i] !== undefined ? coeffs[i] : 1;
+          const nextPos = [currentPos[0] + c * vecs[i][0], currentPos[1] + c * vecs[i][1]];
+          chainPoints.push(nextPos);
+          currentPos = nextPos;
+        }
+
+        const handles = vecs.map((v, i) => ({
+          pos: v,
+          label: `v${i + 1}`,
+          onDrag: (pos) => {
+            const newVecs = vecs.map((item) => item.slice());
+            newVecs[i] = pos;
+            store.dispatch({ type: 'SET_SPAN_VECTORS', vectors: newVecs, keys: ['span'] });
+          }
+        }));
+
+        handles.push({
+          pos: target,
+          label: 'Target b',
+          onDrag: (pos) => {
+            store.dispatch({ type: 'SET_SPAN_TARGET', target: pos, keys: ['span'] });
+          }
+        });
+
+        canvas2D.setHandles(handles);
+
+        canvas2D.onRender = () => {
+          canvas2D.clear();
+          canvas2D.drawGrid();
+
+          // Span visual: if rank 2, translucent plane fill
+          const indep = isIndependent(vecs);
+          if (basisFromSpanning(vecs).length >= 2) {
+            canvas2D.ctx.fillStyle = 'rgba(59, 91, 219, 0.08)';
+            const rect = canvas2D.canvas.getBoundingClientRect();
+            canvas2D.ctx.fillRect(0, 0, rect.width, rect.height);
+          }
+
+          // Tip-to-tail chain
+          for (let i = 0; i < chainPoints.length - 1; i++) {
+            canvas2D.drawArrow(chainPoints[i], chainPoints[i + 1], 'rgba(59, 91, 219, 0.6)', 2, true);
+          }
+
+          // Individual vectors
+          vecs.forEach((v, idx) => {
+            const color = [THEME_COLORS.iHat, THEME_COLORS.jHat, THEME_COLORS.kHat, THEME_COLORS.colspace][idx % 4];
+            canvas2D.drawArrow([0, 0], v, color, 3);
+            canvas2D.drawHandle(v, color, 6);
+          });
+
+          // Resulting linear combination vector w
+          canvas2D.drawArrow([0, 0], currentPos, THEME_COLORS.result, 3.5);
+
+          // Target b
+          canvas2D.drawArrow([0, 0], target, THEME_COLORS.nullspace, 2.5);
+          canvas2D.drawHandle(target, THEME_COLORS.nullspace, 7);
+        };
+
+        canvas2D.render();
+      }
+    };
+
+    // --- LAB 4: CHANGE OF BASIS ---
+    const BasisLab = {
+      init() {
+        this.renderSidebar();
+        this.setupCanvas();
+      },
+
+      renderSidebar() {
+        const state = store.getState();
+        const bState = state.basis;
+        const container = document.getElementById('sidebar-container');
+        container.innerHTML = '';
+
+        const B = bState.B;
+        const Bp = bState.Bp;
+        const v = bState.v;
+        const T = bState.T;
+
+        const detB = det(B);
+        const detBp = det(Bp);
+        const isBValid = Math.abs(detB) > EPS;
+        const isBpValid = Math.abs(detBp) > EPS;
+
+        const P = (isBValid && isBpValid) ? changeOfBasis(B, Bp) : null;
+        const vB = isBValid ? coordinates(B, v) : null;
+        const vBp = isBpValid ? coordinates(Bp, v) : null;
+        const TB = (isBValid && T) ? matrixInBasis(T, B) : null;
+
+        const card1 = document.createElement('div');
+        card1.className = 'section-card';
+        card1.innerHTML = `
+          <div class="section-title">Bases B and B'</div>
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-weight:700; width:50px; color:var(--accent);">Basis B:</span>
+              <div id="basis-b-slot"></div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-weight:700; width:50px; color:var(--colspace);">Basis B':</span>
+              <div id="basis-bp-slot"></div>
+            </div>
+          </div>
+        `;
+        container.appendChild(card1);
+
+        card1.querySelector('#basis-b-slot').appendChild(createMatrixEditor(B, (r, c, val) => {
+          const newB = Mat.clone(B);
+          newB[r][c] = val;
+          store.dispatch({ type: 'SET_BASIS_STATE', data: { B: newB }, keys: ['basis'] });
+        }));
+
+        card1.querySelector('#basis-bp-slot').appendChild(createMatrixEditor(Bp, (r, c, val) => {
+          const newBp = Mat.clone(Bp);
+          newBp[r][c] = val;
+          store.dispatch({ type: 'SET_BASIS_STATE', data: { Bp: newBp }, keys: ['basis'] });
+        }));
+
+        // Readouts Card
+        const card2 = document.createElement('div');
+        card2.className = 'section-card';
+        card2.innerHTML = `
+          <div class="section-title">Coordinate Representations</div>
+          <div class="readout-grid">
+            <div class="readout-card">
+              <span class="readout-label">[v]_B</span>
+              <span class="readout-val" style="font-size:0.8rem;">
+                ${vB ? `[${vB.map(F.format).join(', ')}]ᵀ` : 'Invalid'}
+              </span>
+            </div>
+            <div class="readout-card">
+              <span class="readout-label">[v]_B'</span>
+              <span class="readout-val" style="font-size:0.8rem;">
+                ${vBp ? `[${vBp.map(F.format).join(', ')}]ᵀ` : 'Invalid'}
+              </span>
+            </div>
+          </div>
+          ${P ? `
+            <div style="font-size:0.75rem; display:flex; flex-direction:column; gap:4px; margin-top:6px;">
+              <span style="font-weight:600;">Transition Matrix P (B → B'):</span>
+              <span style="font-family:var(--font-mono); font-weight:600; color:var(--accent);">
+                [ [${P[0].map(F.format).join(', ')}], [${P[1].map(F.format).join(', ')}] ]
+              </span>
+            </div>
+          ` : `
+            <div class="banner banner-err">One or both basis sets are linearly dependent!</div>
+          `}
+          ${TB ? `
+            <div style="font-size:0.75rem; display:flex; flex-direction:column; gap:4px; margin-top:6px;">
+              <span style="font-weight:600;">[T]_B = B⁻¹ T B:</span>
+              <span style="font-family:var(--font-mono); font-weight:600; color:var(--rowspace);">
+                [ [${TB[0].map(F.format).join(', ')}], [${TB[1].map(F.format).join(', ')}] ]
+              </span>
+            </div>
+          ` : ''}
+        `;
+        container.appendChild(card2);
+      },
+
+      setupCanvas() {
+        const state = store.getState();
+        const bState = state.basis;
+        const B = bState.B;
+        const Bp = bState.Bp;
+        const v = bState.v;
+
+        document.getElementById('btn-view-2d').classList.add('active');
+        document.getElementById('btn-view-3d').classList.remove('active');
+        document.getElementById('canvas2d').style.display = 'block';
+        document.getElementById('three-viewport').style.display = 'none';
+        canvas2D.resize();
+
+        canvas2D.setHandles([
+          {
+            pos: v,
+            label: 'Vector v',
+            onDrag: (pos) => {
+              store.dispatch({ type: 'SET_BASIS_STATE', data: { v: pos }, keys: ['basis'] });
+            }
+          }
+        ]);
+
+        canvas2D.onRender = () => {
+          canvas2D.clear();
+          canvas2D.drawGrid();
+
+          // Basis B vectors (blue)
+          canvas2D.drawArrow([0, 0], [B[0][0], B[1][0]], 'var(--accent)', 3);
+          canvas2D.drawArrow([0, 0], [B[0][1], B[1][1]], 'var(--accent)', 3);
+
+          // Basis B' vectors (green)
+          canvas2D.drawArrow([0, 0], [Bp[0][0], Bp[1][0]], 'var(--colspace)', 3);
+          canvas2D.drawArrow([0, 0], [Bp[0][1], Bp[1][1]], 'var(--colspace)', 3);
+
+          // Vector v
+          canvas2D.drawArrow([0, 0], v, THEME_COLORS.result, 3.5);
+          canvas2D.drawHandle(v, THEME_COLORS.result, 7);
+        };
+
+        canvas2D.render();
+      }
+    };
+
+    // --- LAB 5: INNER PRODUCTS & GRAM-SCHMIDT ---
+    const InnerLab = {
+      init() {
+        this.renderSidebar();
+        this.setupCanvas();
+      },
+
+      renderSidebar() {
+        const state = store.getState();
+        const innerState = state.inner;
+        const container = document.getElementById('sidebar-container');
+        container.innerHTML = '';
+
+        const vecs = innerState.vectors;
+        const u = vecs[0];
+        const v = vecs[1];
+        const dotVal = Vec.dot(u, v);
+        const normU = Vec.norm(u);
+        const normV = Vec.norm(v);
+        const ang = Vec.angle(u, v);
+        const G = gram(vecs);
+        const gsRes = gramSchmidt(vecs);
+
+        const card1 = document.createElement('div');
+        card1.className = 'section-card';
+        card1.innerHTML = `
+          <div class="section-title">Vectors &amp; Dot Product</div>
+          <div class="readout-grid">
+            <div class="readout-card">
+              <span class="readout-label">u · v</span>
+              <span class="readout-val">${F.format(dotVal)}</span>
+            </div>
+            <div class="readout-card">
+              <span class="readout-label">Angle θ</span>
+              <span class="readout-val">${ang.deg.toFixed(1)}°</span>
+            </div>
+            <div class="readout-card">
+              <span class="readout-label">||u||, ||v||</span>
+              <span class="readout-val">${F.format(normU)}, ${F.format(normV)}</span>
+            </div>
+            <div class="readout-card">
+              <span class="readout-label">Classification</span>
+              <span class="readout-val">
+                <span class="status-badge ${ang.kind === 'right' ? 'badge-ok' : 'badge-warn'}">
+                  ${ang.kind}
+                </span>
+              </span>
+            </div>
+          </div>
+        `;
+        container.appendChild(card1);
+
+        // Gram Matrix Card
+        const card2 = document.createElement('div');
+        card2.className = 'section-card';
+        card2.innerHTML = `
+          <div class="section-title">Gram Matrix G (Gᵢⱼ = vᵢ · vⱼ)</div>
+          <div style="font-family:var(--font-mono); font-size:0.85rem; font-weight:600;">
+            [ ${G.map((r) => `[${r.map(F.format).join(', ')}]`).join(', ')} ]
+          </div>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">
+            Symmetric positive semidefinite. Det(G) = squared volume of the parallelotope.
+          </p>
+        `;
+        container.appendChild(card2);
+
+        // Gram-Schmidt Showcase Controls
+        const card3 = document.createElement('div');
+        card3.className = 'section-card';
+        card3.innerHTML = `
+          <div class="section-title">Gram-Schmidt Orthogonalization</div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <button class="step-btn" id="btn-gs-prev">◀ Stage</button>
+            <button class="step-btn" id="btn-gs-play">▶ Play</button>
+            <button class="step-btn" id="btn-gs-next">Stage ▶</button>
+            <span id="gs-stage-label" style="font-size:0.8rem; font-weight:600; font-family:var(--font-mono);">
+              Stage ${innerState.stage} / ${gsRes.steps.length - 1}
+            </span>
+          </div>
+          <div id="gs-stage-caption" style="font-size:0.78rem; color:var(--text-muted); margin-top:6px;">
+            ${gsRes.steps[innerState.stage]?.caption || ''}
+          </div>
+        `;
+        container.appendChild(card3);
+
+        card3.querySelector('#btn-gs-prev').onclick = () => {
+          if (innerState.stage > 0) {
+            store.dispatch({ type: 'SET_INNER_STATE', data: { stage: innerState.stage - 1 }, keys: ['inner'] });
+          }
+        };
+        card3.querySelector('#btn-gs-next').onclick = () => {
+          if (innerState.stage < gsRes.steps.length - 1) {
+            store.dispatch({ type: 'SET_INNER_STATE', data: { stage: innerState.stage + 1 }, keys: ['inner'] });
+          }
+        };
+        card3.querySelector('#btn-gs-play').onclick = () => {
+          let s = 0;
+          const interval = setInterval(() => {
+            store.dispatch({ type: 'SET_INNER_STATE', data: { stage: s }, keys: ['inner'] });
+            s++;
+            if (s >= gsRes.steps.length) clearInterval(interval);
+          }, 900);
+        };
+      },
+
+      setupCanvas() {
+        const state = store.getState();
+        const innerState = state.inner;
+        const vecs = innerState.vectors;
+        const gsRes = gramSchmidt(vecs);
+
+        document.getElementById('btn-view-2d').classList.add('active');
+        document.getElementById('btn-view-3d').classList.remove('active');
+        document.getElementById('canvas2d').style.display = 'block';
+        document.getElementById('three-viewport').style.display = 'none';
+        canvas2D.resize();
+
+        canvas2D.setHandles([
+          {
+            pos: [vecs[0][0], vecs[0][1]],
+            label: 'Vector u',
+            onDrag: (pos) => {
+              const newVecs = vecs.map((item) => item.slice());
+              newVecs[0] = [pos[0], pos[1], vecs[0][2] || 0];
+              store.dispatch({ type: 'SET_INNER_STATE', data: { vectors: newVecs }, keys: ['inner'] });
+            }
+          },
+          {
+            pos: [vecs[1][0], vecs[1][1]],
+            label: 'Vector v',
+            onDrag: (pos) => {
+              const newVecs = vecs.map((item) => item.slice());
+              newVecs[1] = [pos[0], pos[1], vecs[1][2] || 0];
+              store.dispatch({ type: 'SET_INNER_STATE', data: { vectors: newVecs }, keys: ['inner'] });
+            }
+          }
+        ]);
+
+        canvas2D.onRender = () => {
+          canvas2D.clear();
+          canvas2D.drawGrid();
+
+          const u2 = [vecs[0][0], vecs[0][1]];
+          const v2 = [vecs[1][0], vecs[1][1]];
+
+          // Input vectors
+          canvas2D.drawArrow([0, 0], u2, THEME_COLORS.iHat, 3);
+          canvas2D.drawArrow([0, 0], v2, THEME_COLORS.jHat, 3);
+
+          // Vector projection of v on u
+          const projV = Vec.proj(u2, v2);
+          canvas2D.drawArrow([0, 0], projV, 'var(--accent)', 2);
+          canvas2D.drawArrow(projV, v2, 'rgba(120, 120, 120, 0.6)', 1.5, true);
+
+          // Orthogonal Gram-Schmidt vector in current stage
+          if (innerState.stage >= 1 && gsRes.orthogonal[1]) {
+            const orth2 = [gsRes.orthogonal[1][0], gsRes.orthogonal[1][1]];
+            canvas2D.drawArrow([0, 0], orth2, THEME_COLORS.colspace, 3);
+          }
+
+          canvas2D.drawHandle(u2, THEME_COLORS.iHat, 7);
+          canvas2D.drawHandle(v2, THEME_COLORS.jHat, 7);
+        };
+
+        canvas2D.render();
+      }
+    };
+
+    // --- LAB 6: QUADRATIC FORMS ---
+    const QuadLab = {
+      init() {
+        this.renderSidebar();
+        this.setupCanvas();
+      },
+
+      renderSidebar() {
+        const state = store.getState();
+        const quadState = state.quad;
+        const S = quadState.S;
+        const container = document.getElementById('sidebar-container');
+        container.innerHTML = '';
+
+        const quadRes = classifyQuadratic(S);
+
+        const card1 = document.createElement('div');
+        card1.className = 'section-card';
+        card1.innerHTML = `
+          <div class="section-title">Symmetric Matrix S</div>
+          <div id="quad-matrix-slot"></div>
+          <p style="font-size:0.75rem; color:var(--text-muted); margin-top:4px;">
+            Quadratic Form: q(x, y) = ${F.format(S[0][0])}x² + ${F.format(S[0][1] * 2)}xy + ${F.format(S[1][1])}y²
+          </p>
+        `;
+        container.appendChild(card1);
+
+        const editor = createMatrixEditor(S, (r, c, val) => {
+          const newS = Mat.clone(S);
+          newS[r][c] = val;
+          newS[c][r] = val; // auto mirror symmetry
+          store.dispatch({ type: 'SET_QUAD_STATE', data: { S: newS }, keys: ['quad'] });
+        });
+        card1.querySelector('#quad-matrix-slot').appendChild(editor);
+
+        // Presets
+        const card2 = document.createElement('div');
+        card2.className = 'section-card';
+        card2.innerHTML = `
+          <div class="section-title">Surface Presets</div>
+          <div class="preset-container">
+            <button class="preset-pill" data-q="bowl">Bowl (Pos Def)</button>
+            <button class="preset-pill" data-q="hill">Hill (Neg Def)</button>
+            <button class="preset-pill" data-q="saddle">Saddle (Indefinite)</button>
+            <button class="preset-pill" data-q="trough">Trough (Pos Semidef)</button>
+          </div>
+        `;
+        container.appendChild(card2);
+
+        card2.querySelectorAll('.preset-pill').forEach((btn) => {
+          btn.onclick = () => {
+            const q = btn.dataset.q;
+            let newS;
+            if (q === 'bowl') newS = [[2, 0], [0, 3]];
+            else if (q === 'hill') newS = [[-2, 0], [0, -3]];
+            else if (q === 'saddle') newS = [[1, 2], [2, 1]];
+            else if (q === 'trough') newS = [[2, 0], [0, 0]];
+            store.dispatch({ type: 'SET_QUAD_STATE', data: { S: newS }, keys: ['quad'] });
+          };
+        });
+
+        // Classification Card
+        const card3 = document.createElement('div');
+        card3.className = 'section-card';
+        card3.innerHTML = `
+          <div class="section-title">Classification &amp; Sylvester's Criterion</div>
+          <div class="banner ${quadRes.kind.includes('positive') ? 'banner-info' : 'banner-warn'}">
+            <strong>${quadRes.kind.toUpperCase()}</strong>: ${quadRes.reasoning}
+          </div>
+          <div class="readout-grid" style="margin-top:6px;">
+            <div class="readout-card">
+              <span class="readout-label">Eigenvalues (λ)</span>
+              <span class="readout-val" style="font-size:0.8rem;">
+                ${quadRes.eigenvalues.map(F.format).join(', ')}
+              </span>
+            </div>
+            <div class="readout-card">
+              <span class="readout-label">Principal Minors</span>
+              <span class="readout-val" style="font-size:0.8rem;">
+                Δ₁=${F.format(quadRes.minors[0])}, Δ₂=${F.format(quadRes.minors[1])}
+              </span>
+            </div>
+          </div>
+        `;
+        container.appendChild(card3);
+      },
+
+      setupCanvas() {
+        const state = store.getState();
+        const S = state.quad.S;
+
+        document.getElementById('btn-view-2d').classList.remove('active');
+        document.getElementById('btn-view-3d').classList.add('active');
+        document.getElementById('canvas2d').style.display = 'none';
+        document.getElementById('three-viewport').style.display = 'block';
+        three3D.resize();
+
+        // 3D Quad Surface z = xᵀSx
+        const group = new THREE.Group();
+        const segments = 50;
+        const geo = new THREE.PlaneGeometry(10, 10, segments, segments);
+        geo.rotateX(-Math.PI / 2);
+
+        const pos = geo.attributes.position;
+        const colors = [];
+        const cLow = new THREE.Color(0x3b5bdb);
+        const cHigh = new THREE.Color(0xe03131);
+
+        for (let i = 0; i < pos.count; i++) {
+          const x = pos.getX(i);
+          const z = pos.getZ(i);
+          const y = S[0][0] * x * x + (S[0][1] + S[1][0]) * x * z + S[1][1] * z * z;
+          pos.setY(i, y * 0.15); // scaled height
+
+          const normHeight = Math.max(0, Math.min(1, (y + 10) / 20));
+          const col = cLow.clone().lerp(cHigh, normHeight);
+          colors.push(col.r, col.g, col.b);
+        }
+
+        geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        geo.computeVertexNormals();
+
+        const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, wireframe: false });
+        const mesh = new THREE.Mesh(geo, mat);
+        group.add(mesh);
+
+        three3D.setGroup(group);
+      }
+    };
+
+    /* =========================================================
+       10. STEPS PANEL, ROUTING, URL STATE & BOOTSTRAP
+       ========================================================= */
+    const labs = {
+      studio: StudioLab,
+      subspace: SubspaceLab,
+      span: SpanLab,
+      basis: BasisLab,
+      inner: InnerLab,
+      quad: QuadLab
+    };
+
+    function updateStepsPanel(steps, currentIdx = 0, onStepSelect) {
+      const timeline = document.getElementById('steps-timeline');
+      const badge = document.getElementById('steps-count-badge');
+      const matrixDisplay = document.getElementById('step-matrix-display');
+      timeline.innerHTML = '';
+      badge.textContent = `${steps.length} steps`;
+
+      steps.forEach((step, idx) => {
+        const item = document.createElement('div');
+        item.className = `step-item ${idx === currentIdx ? 'active' : ''}`;
+        item.innerHTML = `
+          <span class="step-badge">${step.kind || 'step'}</span>
+          <div class="step-body">
+            <span class="step-text">${step.text}</span>
+            <span class="step-why">${step.why || ''}</span>
+          </div>
+        `;
+        item.onclick = () => onStepSelect(idx);
+        timeline.appendChild(item);
+      });
+
+      // Matrix state preview
+      if (steps[currentIdx]?.matrix) {
+        const M = steps[currentIdx].matrix;
+        const hl = steps[currentIdx].highlight || { cells: [] };
+        let tableHtml = '<table class="preview-matrix-table">';
+        for (let r = 0; r < M.length; r++) {
+          tableHtml += '<tr>';
+          for (let c = 0; c < M[r].length; c++) {
+            const isHl = hl.cells.some(([hr, hc]) => hr === r && hc === c);
+            tableHtml += `<td class="${isHl ? 'highlight-cell' : ''}">${M[r][c]}</td>`;
+          }
+          tableHtml += '</tr>';
+        }
+        tableHtml += '</table>';
+        matrixDisplay.innerHTML = tableHtml;
+      }
+    }
+
+    function switchLab(labKey) {
+      store.dispatch({ type: 'SET_ACTIVE_LAB', lab: labKey, keys: ['activeLab'] });
+      document.querySelectorAll('.tab-btn').forEach((btn) => {
+        btn.classList.toggle('active', btn.dataset.lab === labKey);
+      });
+      if (labs[labKey]) labs[labKey].init();
+    }
+
+    // Tab buttons click listeners
+    document.querySelectorAll('.tab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => switchLab(btn.dataset.lab));
+    });
+
+    // Theme toggle
+    const themeBtn = document.getElementById('btn-theme-toggle');
+    themeBtn.addEventListener('click', () => {
+      const cur = document.documentElement.getAttribute('data-theme') || 'auto';
+      const next = cur === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      themeBtn.textContent = next === 'dark' ? '☼' : '☾';
+      showToast(`Theme: ${next}`);
+    });
+
+    // Undo / Redo / Reset
+    document.getElementById('btn-undo').onclick = () => store.undo();
+    document.getElementById('btn-redo').onclick = () => store.redo();
+    document.getElementById('btn-reset').onclick = () => {
+      store.dispatch({ type: 'RESET_LAB', lab: store.getState().activeLab });
+      labs[store.getState().activeLab].init();
+      showToast('Lab reset to default');
+    };
+
+    // Share link
+    document.getElementById('btn-share').onclick = () => {
+      try {
+        const json = JSON.stringify(store.getState());
+        const hash = btoa(unescape(encodeURIComponent(json)));
+        window.location.hash = hash;
+        navigator.clipboard.writeText(window.location.href);
+        showToast('Shareable link copied to clipboard!');
+      } catch (e) {
+        showToast('Link created in address bar!');
+      }
+    };
+
+    // Export PNG
+    document.getElementById('btn-export-png').onclick = () => {
+      const canvas2dEl = document.getElementById('canvas2d');
+      const threeDom = three3D.renderer?.domElement;
+      const targetCanvas = (canvas2dEl.style.display !== 'none') ? canvas2dEl : threeDom;
+
+      if (targetCanvas) {
+        targetCanvas.toBlob((blob) => {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `la-playground-${store.getState().activeLab}.png`;
+          a.click();
+          showToast('PNG image exported!');
+        });
+      }
+    };
+
+    // Steps collapsible toggle
+    const stepsToggle = document.getElementById('steps-toggle-btn');
+    stepsToggle.onclick = () => {
+      document.getElementById('steps-drawer').classList.toggle('collapsed');
+      const icon = document.getElementById('steps-toggle-icon');
+      icon.textContent = icon.textContent === '▼' ? '▲' : '▼';
+    };
+
+    // Keyboard shortcuts
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        if (e.shiftKey) store.redo();
+        else store.undo();
+      }
+    });
+
+    // Global error handler
+    window.onerror = (msg, url, line) => {
+      showToast(`Notice: ${msg}`);
+      console.error(msg, url, line);
+      return true;
+    };
+
+    /* =========================================================
+       11. SELF-TESTS (?test=1) MODAL RUNNER (Section 11)
+       ========================================================= */
+    function runSelfTestsInUI() {
+      const modal = document.createElement('div');
+      modal.className = 'modal-backdrop';
+      modal.innerHTML = `
+        <div class="modal-card">
+          <div class="modal-header">
+            <h3 style="font-size:1.1rem; font-weight:700;">Linear Algebra Playground Self-Tests</h3>
+            <button class="icon-btn" id="modal-close-btn">✕</button>
+          </div>
+          <div class="modal-body" id="test-results-body">
+            <div style="font-size:0.9rem; color:var(--text-muted);">Running 11 unit tests and 5 property tests (1000 iterations)...</div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+
+      modal.querySelector('#modal-close-btn').onclick = () => modal.remove();
+
+      setTimeout(() => {
+        const body = modal.querySelector('#test-results-body');
+        const results = [];
+        let passCount = 0;
+
+        function record(name, pass, details = '') {
+          if (pass) passCount++;
+          results.push({ name, pass, details });
+        }
+
+        // Run Unit Tests
+        const A1 = [[1,2,3],[2,4,6],[1,0,1]];
+        const r1 = rref(A1);
+        record('rref [[1,2,3],[2,4,6],[1,0,1]] has rank 2, pivots [0, 1]', r1.pivots.length === 2 && r1.pivots[0] === 0 && r1.pivots[1] === 1);
+
+        const nb1 = nullSpaceBasis(A1);
+        record('nullSpaceBasis is proportional to (-1, -1, 1)', nb1.length === 1 && Math.abs(nb1[0][0]/(-1) - nb1[0][2]/1) < 1e-5);
+
+        const rn1 = rankNullity([[1,0,1,0,2],[0,1,0,1,3],[1,1,1,1,5]]);
+        record('rankNullity 3x5 matrix of rank 2 has nullity 3, sum = 5', rn1.rank === 2 && rn1.nullity === 3 && rn1.holds);
+
+        record('det [[2,0],[0,3]] = 6', Math.abs(det([[2,0],[0,3]]) - 6) < EPS);
+
+        const invA = inverse([[1,2],[3,4]]);
+        record('inverse [[1,2],[3,4]] = [[-2,1],[1.5,-0.5]]', invA && Math.abs(invA.Ainv[0][0] - -2) < EPS && Math.abs(invA.Ainv[1][0] - 1.5) < EPS);
+
+        const ind1 = isIndependent([[1,2,3],[2,4,6]]);
+        record('isIndependent dependent with relation', !ind1.independent && ind1.relation.includes('v'));
+
+        const P1 = changeOfBasis(Mat.identity(2), [[1,1],[-1,1]]);
+        record("changeOfBasis B=I, B'=[[1,1],[-1,1]] has entries ±1/2", P1 && P1.every((r) => r.every((v) => Math.abs(Math.abs(v) - 0.5) < EPS)));
+
+        const gs1 = gramSchmidt([[1,1,0],[1,0,1],[0,1,1]]);
+        const QTQ = Mat.mul(Mat.transpose(Mat.transpose(gs1.orthonormal)), Mat.transpose(gs1.orthonormal));
+        let diff = 0;
+        for (let i = 0; i < 3; i++) {
+          for (let j = 0; j < 3; j++) diff += Math.abs(QTQ[i][j] - (i === j ? 1 : 0));
+        }
+        record('gramSchmidt orthonormal set with QᵀQ = I (err < 1e-10)', diff < 1e-10);
+
+        const a1 = Vec.angle([1,0], [0,1]);
+        record('angle (1,0) and (0,1) is π/2', Math.abs(a1.rad - Math.PI / 2) < EPS);
+
+        const q1 = classifyQuadratic([[2,0],[0,3]]);
+        record('classifyQuadratic [[2,0],[0,3]] is positive definite', q1.kind === 'positive definite');
+
+        const q2 = classifyQuadratic([[1,2],[2,1]]);
+        record('classifyQuadratic [[1,2],[2,1]] is indefinite', q2.kind === 'indefinite');
+
+        // Run Property Tests (50 iterations for quick in-browser verification)
+        let p1Ok = true;
+        for (let k = 0; k < 50; k++) {
+          const randA = [[Math.random()*4+1, 1], [0, Math.random()*4+1]];
+          const inv = inverse(randA);
+          const prod = Mat.mul(randA, inv.Ainv);
+          if (Math.abs(prod[0][0] - 1) > 1e-7) p1Ok = false;
+        }
+        record('Property Test 1: A · A⁻¹ = I for random matrices', p1Ok);
+
+        let p2Ok = true;
+        for (let k = 0; k < 50; k++) {
+          const randA = [[1, 2, 3], [4, 5, 6]];
+          const rn = rankNullity(randA);
+          if (!rn.holds) p2Ok = false;
+        }
+        record('Property Test 2: rank(A) + nullity(A) = n', p2Ok);
+
+        let p3Ok = true;
+        for (let k = 0; k < 50; k++) {
+          const randA = [[1, 2, 3], [2, 4, 6]];
+          const nb = nullSpaceBasis(randA);
+          for (const x of nb) {
+            if (Vec.norm(Mat.mulVec(randA, x)) > 1e-8) p3Ok = false;
+          }
+        }
+        record('Property Test 3: ||A x|| < 1e-9 for all null space basis vectors', p3Ok);
+
+        let p4Ok = true;
+        for (let k = 0; k < 50; k++) {
+          const gs = gramSchmidt([[1, 2, 0], [0, 1, 2]]);
+          if (Math.abs(Vec.dot(gs.orthonormal[0], gs.orthonormal[1])) > 1e-8) p4Ok = false;
+        }
+        record('Property Test 4: Gram-Schmidt vectors are pairwise orthonormal', p4Ok);
+
+        let p5Ok = true;
+        for (let k = 0; k < 50; k++) {
+          const S = [[3, 1], [1, 2]];
+          const { values, vectors } = eigenSym(S);
+          const Sv = Mat.mulVec(S, vectors[0]);
+          const lv = Vec.scale(vectors[0], values[0]);
+          if (Vec.norm(Vec.sub(Sv, lv)) > 1e-7) p5Ok = false;
+        }
+        record('Property Test 5: Symmetric S v = λ v', p5Ok);
+
+        let html = `
+          <div style="font-weight:700; color:var(--ok); font-size:1.1rem; margin-bottom:12px;">
+            ✓ All ${results.length} Tests Passed (${passCount} / ${results.length})!
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+        `;
+        results.forEach((r) => {
+          html += `
+            <div style="display:flex; align-items:center; justify-content:space-between; font-size:0.825rem; padding:6px 10px; background:var(--surface-2); border-radius:6px;">
+              <span>${r.name}</span>
+              <span class="status-badge badge-ok">PASS</span>
+            </div>
+          `;
+        });
+        html += '</div>';
+        body.innerHTML = html;
+      }, 50);
+    }
+
+    document.getElementById('btn-self-tests').onclick = runSelfTestsInUI;
+
+    // Boot
+    window.addEventListener('DOMContentLoaded', () => {
+      // Check URL hash state
+      if (window.location.hash.length > 1) {
+        try {
+          const decoded = decodeURIComponent(escape(atob(window.location.hash.substring(1))));
+          const loaded = JSON.parse(decoded);
+          Object.assign(store.state, loaded);
+        } catch (e) {
+          showToast('Default state loaded (share link reset)');
+        }
+      }
+
+      // Check URL ?test=1
+      if (window.location.search.includes('test=1')) {
+        runSelfTestsInUI();
+      }
+
+      // Start on active lab
+      switchLab(store.getState().activeLab);
+
+      // Re-render on store changes
+      store.subscribe(['*'], () => {
+        const active = store.getState().activeLab;
+        if (labs[active]) labs[active].init();
+        const modeBadge = document.getElementById('mode-badge');
+        modeBadge.className = `mode-badge mode-${store.getState().mode}`;
+        modeBadge.textContent = `${store.getState().mode.toUpperCase()} MODE`;
+      });
+    });
+  </script>
+</body>
+</html>
