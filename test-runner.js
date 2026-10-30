@@ -718,13 +718,8 @@ function basisFromSpanning(vectors) {
 
 function coordinates(basisB, v) {
   // Solves B c = v where basisB has vectors as columns
-  const n = basisB.length;
-  const BMat = Mat.create(n, n);
-  for (let j = 0; j < n; j++) {
-    for (let i = 0; i < n; i++) BMat[i][j] = basisB[j][i];
-  }
-  const sol = solve(BMat, v);
-  return sol.solution;
+  const sol = solve(basisB, v);
+  return sol ? sol.solution : null;
 }
 
 function changeOfBasis(B, Bprime) {
@@ -947,16 +942,19 @@ function classifyQuadratic(S) {
   let kind = 'indefinite';
   let reasoning = '';
 
-  if (posCount === n) {
+  if (zeroCount === n) {
+    kind = 'zero / flat';
+    reasoning = 'All eigenvalues are zero. The quadratic form is identically zero (flat plane z = 0).';
+  } else if (posCount === n) {
     kind = 'positive definite';
     reasoning = 'All eigenvalues > 0, all leading principal minors > 0.';
   } else if (negCount === n) {
     kind = 'negative definite';
     reasoning = 'All eigenvalues < 0; leading principal minors alternate signs starting negative.';
-  } else if (posCount > 0 && negCount === 0 && zeroCount > 0) {
+  } else if (posCount > 0 && negCount === 0) {
     kind = 'positive semidefinite';
     reasoning = 'All eigenvalues ≥ 0 with at least one zero eigenvalue.';
-  } else if (negCount > 0 && posCount === 0 && zeroCount > 0) {
+  } else if (negCount > 0 && posCount === 0) {
     kind = 'negative semidefinite';
     reasoning = 'All eigenvalues ≤ 0 with at least one zero eigenvalue.';
   } else {
@@ -1154,6 +1152,30 @@ function runAllTests() {
     const has3 = res.eigenvalues.some((v) => Math.abs(v - 3) < 1e-5);
     const hasNeg1 = res.eigenvalues.some((v) => Math.abs(v - -1) < 1e-5);
     assert(res.kind === 'indefinite' && has3 && hasNeg1, 'Unit Test 11: classifyQuadratic [[1,2],[2,1]] is indefinite (3 and -1)');
+  }
+
+  // 12. coordinates with non-symmetric basis B' = [[1, 1], [-1, 1]] and consistency with P
+  {
+    const B = Mat.identity(2);
+    const Bprime = [
+      [1, 1],
+      [-1, 1]
+    ];
+    const v = [2, 0];
+    const coordsBprime = coordinates(Bprime, v);
+    const coordsB = coordinates(B, v);
+    const P = changeOfBasis(B, Bprime);
+    const PvB = Mat.mulVec(P, coordsB);
+    const coordsMatch = Math.abs(coordsBprime[0] - 1) < EPS && Math.abs(coordsBprime[1] - 1) < EPS;
+    const pConsistency = Math.abs(coordsBprime[0] - PvB[0]) < EPS && Math.abs(coordsBprime[1] - PvB[1]) < EPS;
+    assert(coordsMatch && pConsistency, "Unit Test 12: coordinates with non-symmetric B'=[[1,1],[-1,1]] matches P * [v]_B");
+  }
+
+  // 13. classifyQuadratic zero matrix [[0,0],[0,0]] is zero / flat
+  {
+    const S0 = [[0, 0], [0, 0]];
+    const res0 = classifyQuadratic(S0);
+    assert(res0.kind === 'zero / flat', 'Unit Test 13: classifyQuadratic [[0,0],[0,0]] is zero / flat');
   }
 
   // PROPERTY TESTS (Section 11.3 - 200 random inputs each)

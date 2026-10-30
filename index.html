@@ -1774,13 +1774,9 @@
     }
 
     function coordinates(basisB, v) {
-      const n = basisB.length;
-      const BMat = Mat.create(n, n);
-      for (let j = 0; j < n; j++) {
-        for (let i = 0; i < n; i++) BMat[i][j] = basisB[j][i];
-      }
-      const sol = solve(BMat, v);
-      return sol.solution;
+      // basisB has basis vectors as columns; solves B c = v
+      const sol = solve(basisB, v);
+      return sol ? sol.solution : null;
     }
 
     function changeOfBasis(B, Bprime) {
@@ -1992,16 +1988,19 @@
       let kind = 'indefinite';
       let reasoning = '';
 
-      if (posCount === n) {
+      if (zeroCount === n) {
+        kind = 'zero / flat';
+        reasoning = 'All eigenvalues are zero. The quadratic form is identically zero (flat plane z = 0).';
+      } else if (posCount === n) {
         kind = 'positive definite';
         reasoning = 'All eigenvalues > 0, and all leading principal minors > 0.';
       } else if (negCount === n) {
         kind = 'negative definite';
         reasoning = 'All eigenvalues < 0; leading principal minors alternate signs starting negative.';
-      } else if (posCount > 0 && negCount === 0 && zeroCount > 0) {
+      } else if (posCount > 0 && negCount === 0) {
         kind = 'positive semidefinite';
         reasoning = 'All eigenvalues ≥ 0 with at least one zero eigenvalue.';
-      } else if (negCount > 0 && posCount === 0 && zeroCount > 0) {
+      } else if (negCount > 0 && posCount === 0) {
         kind = 'negative semidefinite';
         reasoning = 'All eigenvalues ≤ 0 with at least one zero eigenvalue.';
       } else {
@@ -2706,6 +2705,28 @@
       if (el) el.textContent = msg;
     }
 
+    let focusedCellInfo = null;
+    document.addEventListener('focusin', (e) => {
+      if (e.target && e.target.classList && e.target.classList.contains('matrix-cell-input')) {
+        focusedCellInfo = {
+          r: parseInt(e.target.dataset.r, 10),
+          c: parseInt(e.target.dataset.c, 10),
+          slotId: e.target.closest('[id$="-slot"]')?.id || null
+        };
+      }
+    });
+
+    function restoreCellFocus() {
+      if (!focusedCellInfo || !focusedCellInfo.slotId) return;
+      const slot = document.getElementById(focusedCellInfo.slotId);
+      if (slot) {
+        const inp = slot.querySelector(`input[data-r="${focusedCellInfo.r}"][data-c="${focusedCellInfo.c}"]`);
+        if (inp && document.activeElement !== inp) {
+          inp.focus();
+        }
+      }
+    }
+
     function createMatrixEditor(matrix, onChange, labels = { row: 'R', col: 'C' }) {
       const rows = Mat.rows(matrix);
       const cols = Mat.cols(matrix);
@@ -2721,11 +2742,13 @@
           const input = document.createElement('input');
           input.className = 'matrix-cell-input';
           input.value = F.format(matrix[r][c]);
+          input.dataset.r = r;
+          input.dataset.c = c;
           input.setAttribute('aria-label', `${labels.row}${r + 1}, ${labels.col}${c + 1}`);
 
-          // Typing change
-          input.addEventListener('change', () => {
+          const commit = () => {
             const valStr = input.value.trim();
+            if (valStr === '') return;
             try {
               let val;
               if (valStr.includes('/')) {
@@ -2741,6 +2764,37 @@
               input.classList.add('invalid');
               showToast('Invalid entry. Enter a number or fraction like 3/4');
             }
+          };
+
+          input.addEventListener('change', commit);
+
+          input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commit();
+              // Move to next cell if available
+              const nextC = c + 1 < cols ? c + 1 : 0;
+              const nextR = c + 1 < cols ? r : (r + 1 < rows ? r + 1 : 0);
+              const nextInp = grid.querySelector(`input[data-r="${nextR}"][data-c="${nextC}"]`);
+              if (nextInp) {
+                nextInp.focus();
+                nextInp.select();
+              } else {
+                input.blur();
+              }
+            } else if (e.key === 'ArrowRight' && input.selectionEnd === input.value.length && c + 1 < cols) {
+              const nextInp = grid.querySelector(`input[data-r="${r}"][data-c="${c + 1}"]`);
+              if (nextInp) { nextInp.focus(); nextInp.select(); }
+            } else if (e.key === 'ArrowLeft' && input.selectionStart === 0 && c > 0) {
+              const prevInp = grid.querySelector(`input[data-r="${r}"][data-c="${c - 1}"]`);
+              if (prevInp) { prevInp.focus(); prevInp.select(); }
+            } else if (e.key === 'ArrowDown' && r + 1 < rows) {
+              const downInp = grid.querySelector(`input[data-r="${r + 1}"][data-c="${c}"]`);
+              if (downInp) { downInp.focus(); downInp.select(); }
+            } else if (e.key === 'ArrowUp' && r > 0) {
+              const upInp = grid.querySelector(`input[data-r="${r - 1}"][data-c="${c}"]`);
+              if (upInp) { upInp.focus(); upInp.select(); }
+            }
           });
 
           // Click-drag scrubbing
@@ -2752,6 +2806,7 @@
             startX = e.clientX;
             startVal = parseFloat(input.value) || 0;
             isScrubbing = false;
+            try { input.setPointerCapture(e.pointerId); } catch (_) {}
           });
 
           input.addEventListener('pointermove', (e) => {
@@ -2765,6 +2820,18 @@
                 input.value = newVal;
                 onChange(r, c, newVal);
               }
+            }
+          });
+
+          input.addEventListener('pointerup', (e) => {
+            try {
+              if (input.hasPointerCapture && input.hasPointerCapture(e.pointerId)) {
+                input.releasePointerCapture(e.pointerId);
+              }
+            } catch (_) {}
+            if (isScrubbing) {
+              isScrubbing = false;
+              commit();
             }
           });
 
@@ -2797,8 +2864,8 @@
         const d = det(A);
         const tr = A.length === 2 ? A[0][0] + A[1][1] : A[0][0] + A[1][1] + A[2][2];
         const r = rank(A);
-        const isInvertible = Math.abs(d) > EPS;
         const invRes = inverse(A);
+        const isInvertible = Math.abs(d) > EPS && invRes !== null;
         const eigenRes = studio.dim === 2 ? eigen2(A) : null;
 
         // Card 1: Matrix Input & Dimension toggle
@@ -2927,6 +2994,7 @@
         container.appendChild(card3);
 
         announceAria(`Matrix A transforms space with determinant ${F.format(d)}. Invertible: ${isInvertible ? 'Yes' : 'No'}.`);
+        restoreCellFocus();
       },
 
       switchView(mode) {
@@ -3048,29 +3116,43 @@
           this.switchView('3d');
           const group = new THREE.Group();
           const A = studio.A;
+          const t = studio.t;
+          const I3 = Mat.identity(3);
+          const Mt = [
+            [(1 - t) * I3[0][0] + t * A[0][0], (1 - t) * I3[0][1] + t * A[0][1], (1 - t) * I3[0][2] + t * A[0][2]],
+            [(1 - t) * I3[1][0] + t * A[1][0], (1 - t) * I3[1][1] + t * A[1][1], (1 - t) * I3[1][2] + t * A[1][2]],
+            [(1 - t) * I3[2][0] + t * A[2][0], (1 - t) * I3[2][1] + t * A[2][1], (1 - t) * I3[2][2] + t * A[2][2]]
+          ];
 
           // Basis vectors
-          const col0 = new THREE.Vector3(A[0][0], A[1][0], A[2][0]);
-          const col1 = new THREE.Vector3(A[0][1], A[1][1], A[2][1]);
-          const col2 = new THREE.Vector3(A[0][2], A[1][2], A[2][2]);
+          const col0 = new THREE.Vector3(Mt[0][0], Mt[1][0], Mt[2][0]);
+          const col1 = new THREE.Vector3(Mt[0][1], Mt[1][1], Mt[2][1]);
+          const col2 = new THREE.Vector3(Mt[0][2], Mt[1][2], Mt[2][2]);
 
-          const arr0 = new THREE.ArrowHelper(col0.clone().normalize(), new THREE.Vector3(0,0,0), col0.length(), 0xe03131);
-          const arr1 = new THREE.ArrowHelper(col1.clone().normalize(), new THREE.Vector3(0,0,0), col1.length(), 0x2f9e44);
-          const arr2 = new THREE.ArrowHelper(col2.clone().normalize(), new THREE.Vector3(0,0,0), col2.length(), 0x1c7ed6);
-          group.add(arr0);
-          group.add(arr1);
-          group.add(arr2);
+          if (col0.length() > EPS) {
+            const arr0 = new THREE.ArrowHelper(col0.clone().normalize(), new THREE.Vector3(0,0,0), col0.length(), 0xe03131);
+            group.add(arr0);
+          }
+          if (col1.length() > EPS) {
+            const arr1 = new THREE.ArrowHelper(col1.clone().normalize(), new THREE.Vector3(0,0,0), col1.length(), 0x2f9e44);
+            group.add(arr1);
+          }
+          if (col2.length() > EPS) {
+            const arr2 = new THREE.ArrowHelper(col2.clone().normalize(), new THREE.Vector3(0,0,0), col2.length(), 0x1c7ed6);
+            group.add(arr2);
+          }
 
-          // Transformed Cube
+          // Transformed Parallelepiped (unit cube cornered at origin [0,0,0] to [1,1,1])
           const cubeGeo = new THREE.BoxGeometry(1, 1, 1);
+          cubeGeo.translate(0.5, 0.5, 0.5);
           const cubeMat = new THREE.MeshNormalMaterial({ wireframe: false, opacity: 0.45, transparent: true });
           const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat);
 
           const matrix = new THREE.Matrix4();
           matrix.set(
-            A[0][0], A[0][1], A[0][2], 0,
-            A[1][0], A[1][1], A[1][2], 0,
-            A[2][0], A[2][1], A[2][2], 0,
+            Mt[0][0], Mt[0][1], Mt[0][2], 0,
+            Mt[1][0], Mt[1][1], Mt[1][2], 0,
+            Mt[2][0], Mt[2][1], Mt[2][2], 0,
             0, 0, 0, 1
           );
           cubeMesh.applyMatrix4(matrix);
@@ -3161,17 +3243,23 @@
               <div style="width:${(rn.nullity / rn.n) * 100}%; background:var(--nullspace);" title="Nullity: ${rn.nullity}"></div>
             </div>
           </div>
-          <div class="readout-grid">
+          <div class="readout-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
             <div class="readout-card" style="border-left:3px solid var(--colspace);">
-              <span class="readout-label">Col Space Basis</span>
+              <span class="readout-label">Col Space Basis (dim ${colB.length})</span>
               <span class="readout-val" style="font-size:0.75rem;">
                 ${colB.length > 0 ? colB.map((v) => `[${v.map(F.format).join(', ')}]`).join('<br>') : '{0}'}
               </span>
             </div>
             <div class="readout-card" style="border-left:3px solid var(--nullspace);">
-              <span class="readout-label">Null Space Basis</span>
+              <span class="readout-label">Null Space Basis (dim ${nullB.length})</span>
               <span class="readout-val" style="font-size:0.75rem;">
                 ${nullB.length > 0 ? nullB.map((v) => `[${v.map(F.format).join(', ')}]`).join('<br>') : '{0}'}
+              </span>
+            </div>
+            <div class="readout-card" style="border-left:3px solid var(--rowspace);">
+              <span class="readout-label">Row Space Basis (dim ${rowB.length})</span>
+              <span class="readout-val" style="font-size:0.75rem;">
+                ${rowB.length > 0 ? rowB.map((v) => `[${v.map(F.format).join(', ')}]`).join('<br>') : '{0}'}
               </span>
             </div>
           </div>
@@ -3229,6 +3317,7 @@
           btn.onclick = () => runSubTest(btn.dataset.sub);
         });
         runSubTest('plane');
+        restoreCellFocus();
       },
 
       setupSteps() {
@@ -3260,24 +3349,69 @@
           // Draw column space
           if (colB.length === 1) {
             const v = new THREE.Vector3(colB[0][0], colB[0][1], colB[0][2]);
-            const arr = new THREE.ArrowHelper(v.clone().normalize(), new THREE.Vector3(0,0,0), 6, 0x0ca678);
-            group.add(arr);
-          } else if (colB.length >= 2) {
-            const planeGeo = new THREE.PlaneGeometry(12, 12);
+            if (v.length() > EPS) {
+              const dir = v.clone().normalize();
+              const arr = new THREE.ArrowHelper(dir, new THREE.Vector3(0,0,0), 6, 0x0ca678, 0.6, 0.3);
+              const oppArr = new THREE.ArrowHelper(dir.clone().negate(), new THREE.Vector3(0,0,0), 6, 0x0ca678, 0.6, 0.3);
+              group.add(arr);
+              group.add(oppArr);
+            }
+          } else if (colB.length === 2) {
+            const planeGeo = new THREE.PlaneGeometry(14, 14);
             const planeMat = new THREE.MeshBasicMaterial({ color: 0x0ca678, opacity: 0.35, transparent: true, side: THREE.DoubleSide, depthWrite: false });
             const planeMesh = new THREE.Mesh(planeGeo, planeMat);
 
             const normal = Vec.cross(colB[0], colB[1]);
-            const normV = new THREE.Vector3(normal[0], normal[1], normal[2]).normalize();
-            planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normV);
-            group.add(planeMesh);
+            const normV = new THREE.Vector3(normal[0], normal[1], normal[2]);
+            if (normV.length() > EPS) {
+              planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normV.normalize());
+              group.add(planeMesh);
+            }
+            for (const col of colB) {
+              const v = new THREE.Vector3(col[0], col[1], col[2]);
+              if (v.length() > EPS) {
+                group.add(new THREE.ArrowHelper(v.clone().normalize(), new THREE.Vector3(0,0,0), Math.max(3, v.length()), 0x0ca678));
+              }
+            }
+          } else if (colB.length === 3) {
+            for (const col of colB) {
+              const v = new THREE.Vector3(col[0], col[1], col[2]);
+              if (v.length() > EPS) {
+                group.add(new THREE.ArrowHelper(v.clone().normalize(), new THREE.Vector3(0,0,0), Math.max(3, v.length()), 0x0ca678));
+              }
+            }
+            const boxGeo = new THREE.BoxGeometry(8, 8, 8);
+            const boxMat = new THREE.MeshBasicMaterial({ color: 0x0ca678, opacity: 0.12, transparent: true, wireframe: true });
+            group.add(new THREE.Mesh(boxGeo, boxMat));
           }
 
           // Draw null space
           if (nullB.length === 1) {
             const nv = new THREE.Vector3(nullB[0][0], nullB[0][1], nullB[0][2]);
-            const arr = new THREE.ArrowHelper(nv.clone().normalize(), new THREE.Vector3(0,0,0), 6, 0xf76707);
-            group.add(arr);
+            if (nv.length() > EPS) {
+              const dir = nv.clone().normalize();
+              const arr = new THREE.ArrowHelper(dir, new THREE.Vector3(0,0,0), 6, 0xf76707, 0.6, 0.3);
+              const oppArr = new THREE.ArrowHelper(dir.clone().negate(), new THREE.Vector3(0,0,0), 6, 0xf76707, 0.6, 0.3);
+              group.add(arr);
+              group.add(oppArr);
+            }
+          } else if (nullB.length === 2) {
+            const planeGeo = new THREE.PlaneGeometry(14, 14);
+            const planeMat = new THREE.MeshBasicMaterial({ color: 0xf76707, opacity: 0.35, transparent: true, side: THREE.DoubleSide, depthWrite: false });
+            const planeMesh = new THREE.Mesh(planeGeo, planeMat);
+
+            const normal = Vec.cross(nullB[0], nullB[1]);
+            const normV = new THREE.Vector3(normal[0], normal[1], normal[2]);
+            if (normV.length() > EPS) {
+              planeMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normV.normalize());
+              group.add(planeMesh);
+            }
+            for (const nv of nullB) {
+              const v = new THREE.Vector3(nv[0], nv[1], nv[2]);
+              if (v.length() > EPS) {
+                group.add(new THREE.ArrowHelper(v.clone().normalize(), new THREE.Vector3(0,0,0), Math.max(3, v.length()), 0xf76707));
+              }
+            }
           }
 
           three3D.setGroup(group);
@@ -3292,11 +3426,77 @@
           canvas2D.onRender = () => {
             canvas2D.clear();
             canvas2D.drawGrid();
-            // Draw column vectors in 2D projection
+
             const colB = colSpaceBasis(A);
-            for (const col of colB) {
-              if (col.length >= 2) canvas2D.drawArrow([0, 0], [col[0], col[1]], THEME_COLORS.colspace, 3);
+            const nullB = nullSpaceBasis(A);
+            const rowB = rowSpaceBasis(A);
+
+            // 1. Column Space (Green)
+            if (colB.length === 1 && colB[0].length >= 2) {
+              const v = [colB[0][0], colB[0][1]];
+              const len = Math.hypot(v[0], v[1]);
+              if (len > EPS) {
+                const pA = canvas2D.worldToScreen(-20 * v[0] / len, -20 * v[1] / len);
+                const pB = canvas2D.worldToScreen(20 * v[0] / len, 20 * v[1] / len);
+                canvas2D.ctx.save();
+                canvas2D.ctx.strokeStyle = THEME_COLORS.colspace;
+                canvas2D.ctx.lineWidth = 1.5;
+                canvas2D.ctx.setLineDash([6, 4]);
+                canvas2D.ctx.beginPath();
+                canvas2D.ctx.moveTo(pA.sx, pA.sy);
+                canvas2D.ctx.lineTo(pB.sx, pB.sy);
+                canvas2D.ctx.stroke();
+                canvas2D.ctx.restore();
+              }
+              canvas2D.drawArrow([0, 0], v, THEME_COLORS.colspace, 3);
+            } else if (colB.length >= 2) {
+              for (const col of colB) {
+                if (col.length >= 2) canvas2D.drawArrow([0, 0], [col[0], col[1]], THEME_COLORS.colspace, 3);
+              }
             }
+
+            // 2. Null Space (Orange)
+            if (nullB.length === 1 && nullB[0].length >= 2) {
+              const nv = [nullB[0][0], nullB[0][1]];
+              const len = Math.hypot(nv[0], nv[1]);
+              if (len > EPS) {
+                const pA = canvas2D.worldToScreen(-20 * nv[0] / len, -20 * nv[1] / len);
+                const pB = canvas2D.worldToScreen(20 * nv[0] / len, 20 * nv[1] / len);
+                canvas2D.ctx.save();
+                canvas2D.ctx.strokeStyle = THEME_COLORS.nullspace;
+                canvas2D.ctx.lineWidth = 1.5;
+                canvas2D.ctx.setLineDash([4, 4]);
+                canvas2D.ctx.beginPath();
+                canvas2D.ctx.moveTo(pA.sx, pA.sy);
+                canvas2D.ctx.lineTo(pB.sx, pB.sy);
+                canvas2D.ctx.stroke();
+                canvas2D.ctx.restore();
+              }
+              canvas2D.drawArrow([0, 0], nv, THEME_COLORS.nullspace, 3);
+            } else if (nullB.length >= 2) {
+              for (const nv of nullB) {
+                if (nv.length >= 2) canvas2D.drawArrow([0, 0], [nv[0], nv[1]], THEME_COLORS.nullspace, 2.5);
+              }
+            }
+
+            // 3. Row Space (Purple)
+            for (const row of rowB) {
+              if (row.length >= 2) {
+                canvas2D.drawArrow([0, 0], [row[0], row[1]], THEME_COLORS.rowspace, 2.5);
+              }
+            }
+
+            // Canvas Legend
+            const ctx = canvas2D.ctx;
+            ctx.save();
+            ctx.font = '11px sans-serif';
+            ctx.fillStyle = THEME_COLORS.colspace;
+            ctx.fillText('■ Col(A)', 14, 24);
+            ctx.fillStyle = THEME_COLORS.nullspace;
+            ctx.fillText('■ Nul(A)', 14, 40);
+            ctx.fillStyle = THEME_COLORS.rowspace;
+            ctx.fillText('■ Row(A)', 14, 56);
+            ctx.restore();
           };
           canvas2D.render();
         }
@@ -3424,6 +3624,7 @@
           </div>
         `;
         container.appendChild(card3);
+        restoreCellFocus();
       },
 
       setupCanvas() {
@@ -3591,6 +3792,11 @@
           ` : `
             <div class="banner banner-err">One or both basis sets are linearly dependent!</div>
           `}
+          ${(P && vB && vBp) ? `
+            <div class="banner banner-info" style="font-size:0.75rem; margin-top:6px;">
+              ✓ Verification: P · [v]_B = [${Mat.mulVec(P, vB).map(F.format).join(', ')}]ᵀ = [v]_B'
+            </div>
+          ` : ''}
           ${TB ? `
             <div style="font-size:0.75rem; display:flex; flex-direction:column; gap:4px; margin-top:6px;">
               <span style="font-weight:600;">[T]_B = B⁻¹ T B:</span>
@@ -3601,6 +3807,7 @@
           ` : ''}
         `;
         container.appendChild(card2);
+        restoreCellFocus();
       },
 
       setupCanvas() {
@@ -3750,6 +3957,7 @@
             if (s >= gsRes.steps.length) clearInterval(interval);
           }, 900);
         };
+        restoreCellFocus();
       },
 
       setupCanvas() {
@@ -3860,6 +4068,7 @@
             <button class="preset-pill" data-q="hill">Hill (Neg Def)</button>
             <button class="preset-pill" data-q="saddle">Saddle (Indefinite)</button>
             <button class="preset-pill" data-q="trough">Trough (Pos Semidef)</button>
+            <button class="preset-pill" data-q="flat">Flat (Zero)</button>
           </div>
         `;
         container.appendChild(card2);
@@ -3872,6 +4081,7 @@
             else if (q === 'hill') newS = [[-2, 0], [0, -3]];
             else if (q === 'saddle') newS = [[1, 2], [2, 1]];
             else if (q === 'trough') newS = [[2, 0], [0, 0]];
+            else if (q === 'flat') newS = [[0, 0], [0, 0]];
             store.dispatch({ type: 'SET_QUAD_STATE', data: { S: newS }, keys: ['quad'] });
           };
         });
@@ -3879,9 +4089,10 @@
         // Classification Card
         const card3 = document.createElement('div');
         card3.className = 'section-card';
+        const bannerClass = quadRes.kind.includes('positive') ? 'banner-info' : (quadRes.kind.includes('negative') ? 'banner-err' : 'banner-warn');
         card3.innerHTML = `
           <div class="section-title">Classification &amp; Sylvester's Criterion</div>
-          <div class="banner ${quadRes.kind.includes('positive') ? 'banner-info' : 'banner-warn'}">
+          <div class="banner ${bannerClass}">
             <strong>${quadRes.kind.toUpperCase()}</strong>: ${quadRes.reasoning}
           </div>
           <div class="readout-grid" style="margin-top:6px;">
@@ -3900,6 +4111,7 @@
           </div>
         `;
         container.appendChild(card3);
+        restoreCellFocus();
       },
 
       setupCanvas() {
@@ -3923,14 +4135,23 @@
         const cLow = new THREE.Color(0x3b5bdb);
         const cHigh = new THREE.Color(0xe03131);
 
+        let maxY = 0;
+        const rawY = new Float32Array(pos.count);
         for (let i = 0; i < pos.count; i++) {
           const x = pos.getX(i);
           const z = pos.getZ(i);
           const y = S[0][0] * x * x + (S[0][1] + S[1][0]) * x * z + S[1][1] * z * z;
-          pos.setY(i, y * 0.15); // scaled height
+          rawY[i] = y;
+          if (Math.abs(y) > maxY) maxY = Math.abs(y);
+        }
 
-          const normHeight = Math.max(0, Math.min(1, (y + 10) / 20));
-          const col = cLow.clone().lerp(cHigh, normHeight);
+        const heightScale = maxY > 1e-4 ? Math.min(0.2, 4.0 / maxY) : 0;
+        for (let i = 0; i < pos.count; i++) {
+          const y = rawY[i];
+          pos.setY(i, y * heightScale);
+
+          const normHeight = maxY > 1e-4 ? (y / maxY + 1) / 2 : 0.5;
+          const col = cLow.clone().lerp(cHigh, Math.max(0, Math.min(1, normHeight)));
           colors.push(col.r, col.g, col.b);
         }
 
@@ -3993,6 +4214,36 @@
         }
         tableHtml += '</table>';
         matrixDisplay.innerHTML = tableHtml;
+      }
+
+      // Step controls
+      const prevBtn = document.getElementById('step-btn-prev');
+      const nextBtn = document.getElementById('step-btn-next');
+      const playBtn = document.getElementById('step-btn-play');
+
+      if (prevBtn) {
+        prevBtn.onclick = () => {
+          if (currentIdx > 0 && onStepSelect) onStepSelect(currentIdx - 1);
+        };
+      }
+      if (nextBtn) {
+        nextBtn.onclick = () => {
+          if (currentIdx < steps.length - 1 && onStepSelect) onStepSelect(currentIdx + 1);
+        };
+      }
+      if (playBtn) {
+        playBtn.onclick = () => {
+          let s = 0;
+          if (window._stepsInterval) clearInterval(window._stepsInterval);
+          window._stepsInterval = setInterval(() => {
+            if (s < steps.length && onStepSelect) {
+              onStepSelect(s);
+              s++;
+            } else {
+              clearInterval(window._stepsInterval);
+            }
+          }, 800);
+        };
       }
     }
 
@@ -4095,7 +4346,7 @@
             <button class="icon-btn" id="modal-close-btn">✕</button>
           </div>
           <div class="modal-body" id="test-results-body">
-            <div style="font-size:0.9rem; color:var(--text-muted);">Running 11 unit tests and 5 property tests (1000 iterations)...</div>
+            <div style="font-size:0.9rem; color:var(--text-muted);">Running 13 unit tests and 5 property tests (1000 iterations)...</div>
           </div>
         </div>
       `;
@@ -4151,6 +4402,22 @@
 
         const q2 = classifyQuadratic([[1,2],[2,1]]);
         record('classifyQuadratic [[1,2],[2,1]] is indefinite', q2.kind === 'indefinite');
+
+        // Unit Test 12: coordinates with non-symmetric basis B' = [[1, 1], [-1, 1]]
+        const B12 = Mat.identity(2);
+        const Bprime12 = [[1, 1], [-1, 1]];
+        const v12 = [2, 0];
+        const coordsBprime12 = coordinates(Bprime12, v12);
+        const coordsB12 = coordinates(B12, v12);
+        const P12 = changeOfBasis(B12, Bprime12);
+        const PvB12 = Mat.mulVec(P12, coordsB12);
+        const coordsMatch12 = Math.abs(coordsBprime12[0] - 1) < EPS && Math.abs(coordsBprime12[1] - 1) < EPS;
+        const pConsistency12 = Math.abs(coordsBprime12[0] - PvB12[0]) < EPS && Math.abs(coordsBprime12[1] - PvB12[1]) < EPS;
+        record("coordinates with non-symmetric B'=[[1,1],[-1,1]] matches P * [v]_B", coordsMatch12 && pConsistency12);
+
+        // Unit Test 13: classifyQuadratic zero matrix [[0,0],[0,0]] is zero / flat
+        const qZero13 = classifyQuadratic([[0, 0], [0, 0]]);
+        record('classifyQuadratic [[0,0],[0,0]] is zero / flat', qZero13.kind === 'zero / flat');
 
         // Run Property Tests (50 iterations for quick in-browser verification)
         let p1Ok = true;
